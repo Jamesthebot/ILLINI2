@@ -1,5 +1,6 @@
 #include "mcl.h"
 #include "fieldRepresentation.h"
+#include <random>
 
 fieldRepresentation::distanceSensorDistances MCL::sensorData_;
 vector<particle> MCL::particles_;
@@ -83,6 +84,44 @@ fieldRepresentation::distanceSensorDistances MCL::readSensors() {
     return data;
 }
 
+
+// Someone should look at this 
+
 void MCL::resample() {
     // TODO
+    size_t count = particles_.size();
+    if (count == 0 ) return;
+
+
+    double sumW = 0;
+    for (auto it = particles_.begin(); it != particles_.end(); it++) {
+        sumW += (*it).getWeight();
+    }
+    static std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution<double> dist(0.0, 1.0 / n);
+
+    vector<particle> newParticles;
+    newParticles.reserve(n);
+
+    double step = sumW / n;                 
+    double pointer = dist(rng) * sumW;      
+    double cumulative = particles_[0].getWeight();
+    size_t i = 0;
+
+    for (size_t m = 0; m < n; m++) {
+        double target = pointer + m * step;
+        while (target > cumulative && i < n - 1) {
+            i++;
+            cumulative += particles_[i].getWeight();
+        }
+        newParticles.push_back(particles_[i]);   
+    }
+
+    for (auto& p : newParticles) {
+        p.setWeight(1.0 / n);
+    }
+
+    particles_ = std::move(newParticles);
+
 }
+
