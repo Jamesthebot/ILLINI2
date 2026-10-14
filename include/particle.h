@@ -3,7 +3,6 @@
 
 using namespace utilities;
 
-
 class particle {
     private:
         double x_; // inches

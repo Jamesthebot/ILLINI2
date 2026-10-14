@@ -14,6 +14,32 @@
 
 #ifndef _PROS_MAIN_H_
 #define _PROS_MAIN_H_
+/**
+ * Add PROS header files here;
+ * NOTE: There shouldn't be anything else here
+ */
+#include "api.h" // DO NOT REMOVE //
+#include "pros/apix.h"
+#include "liblvgl/lvgl.h"
+#include "common/util.hpp"
+#include "lemlib/api.hpp"
+///////////////////////////////////////
+///////////////////////////////////////
+
+/**
+ * Add C++ headers here
+ */
+#include <iostream>
+#include <chrono>
+#include <string>
+#include <math.h>
+#include <cmath>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <initializer_list>
+#include <functional>
+///////////////////////////////////////
 
 /**
  * If defined, some commonly used enums will have preprocessor macros which give
