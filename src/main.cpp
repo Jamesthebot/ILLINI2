@@ -1,6 +1,8 @@
 #include "main.h"
 #include "robot.h"
 
+
+
 void initialize() {
     pros::lcd::initialize();
     chassis.calibrate(); 
@@ -17,6 +19,7 @@ void autonomous() {
 } 
 
 void opcontrol() { 
+	pros::Controller master(pros::E_CONTROLLER_MASTER);
 
 	while (true) {
 		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
