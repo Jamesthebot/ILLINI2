@@ -18,17 +18,35 @@ export default function Dashboard() {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                const parsedJSON = JSON.parse(e.target?.result as string);
+                const parsedCSV = parseCSV(e.target?.result as string);
                 
-                setRobotData(parsedJSON);
+                setRobotData(parsedCSV);
                 setIndex(0); 
-                console.log("Successfully parsed robot map data:", parsedJSON);
+                console.log("Successfully parsed robot map data:", parsedCSV);
             } catch (error) {
-                alert("Failed to parse JSON. Please check file formatting.");
+                alert("Failed to parse CSV. Please check file formatting.");
             }
         };
         reader.readAsText(file);
     };
+
+    function parseCSV(csv : string) : any {
+        const lineRegExp = /[^\r\n]+/g;
+        let match;
+        let rowIndex : number = 0;
+        const data : RobotData = {}
+        while ((match = lineRegExp.exec(csv)) !== null) {
+            if (rowIndex === 0) {
+                rowIndex++;
+                continue;
+            } 
+            const row: string = match[0];
+            const values : number[] = row.split(',').map(str => parseFloat(str));
+            data[rowIndex - 1] = values;
+            rowIndex++;
+        }
+        return data;
+    }
 
     const currentWaypoint = robotData?.[index] || [0,0,0];
     
@@ -42,7 +60,7 @@ export default function Dashboard() {
             <div style={{ marginBottom: '20px' }}>
                 <input 
                     type="file" 
-                    accept=".json" 
+                    accept=".csv" 
                     onChange={handleFileUpload} 
                 />
             </div>
