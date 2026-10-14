@@ -4,6 +4,7 @@
 #include <vector>
 #include "utilities.hpp"
 #include "particle.h"
+#include "telemetry.h"
 
 using namespace std;
 
@@ -15,6 +16,7 @@ class MCL {
         static fieldRepresentation& getField();
         static fieldRepresentation::distanceSensorDistances readSensors();
         static double effectiveParticleCount();
+        static telemetry tele;
     public:
         static void setSensorData(fieldRepresentation::distanceSensorDistances data) { sensorData_ = data; }
 

@@ -91,11 +91,11 @@ void MCL::resample() {
     // TODO
     size_t count = particles_.size();
     if (count == 0 ) return;
-
-
+    int n = 0;
     double sumW = 0;
     for (auto it = particles_.begin(); it != particles_.end(); it++) {
         sumW += (*it).getWeight();
+        n++;
     }
     static std::mt19937 rng{std::random_device{}()};
     std::uniform_real_distribution<double> dist(0.0, 1.0 / n);
