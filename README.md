@@ -7,21 +7,39 @@ Built with PROS (kernel 4.2.2) and LemLib 0.5.6.
 
 ## How it works
 
-Each MCL cycle (every 20 ms, in its own task):
+Start it with `MCL::init(numParticles)` (done in `initialize()`), then call `MCL::reset(startPose)` once the
+robot's real starting pose is known; this sets the LemLib pose and re-scatters the particles around it.
+Poses are in the field frame described below (origin at field centre).
 
-1. **Read sensors** – the four `pros::Distance` sensors (front, right, back, left) are read and
-   converted to inches. Out-of-range readings become `-1`.
+Each MCL cycle (every 100 ms, in its own task):
+
+1. **Read sensors** – the four V5 Distance Sensors (front, right, back, left) are read and converted to
+   inches. Each reading is one of:
+   - a distance (20–2000 mm; readings past 200 mm also need a confidence of at least 30/63),
+   - *nothing in range* (the sensor's 9999 code), or
+   - *invalid* (sensor error or unplugged, closer than 20 mm, or low confidence); this carries no information.
 2. **Update** – the odometry change since the last cycle is taken from LemLib, converted into the
    robot frame (forward / right), and applied to every particle using that particle's own heading.
-3. **Weigh** – for each particle, `fieldRepresentation::simulateCast` predicts what the four sensors
-   should read from that pose. Particles whose predictions match the real readings get higher weight.
-   The weighted mean of the particles is the pose estimate.
-4. **Correct** – the estimate is applied to LemLib as a correction relative to the pose sampled at the
-   start of the cycle, so motion LemLib tracked during weighing isn't lost.
+3. **Weigh** – for each particle, `fieldRepresentation::simulateCast` predicts what each sensor should read
+   and at what angle the beam hits the surface. Each sensor is scored with a beam model:
+   - **hit** – Gaussian around the predicted distance. σ combines the sensor spec (±15 mm, or 5%), model
+     error, and extra spread for oblique hits.
+   - **short** – something between the sensor and the modelled surface, such as a robot or game element.
+     This bounds how much an obstruction can hurt a particle.
+   - **random** – uniform noise.
+   - **nothing in range** counts against a particle only if it expects a close (< 48"), nearly head-on
+     wall, because the sensor also returns nothing on glancing hits.
+
+   Particles off the field or inside a goal or loader get zero weight. Weighing is skipped until the robot
+   has moved 0.5" or turned 1°, so a stationary robot doesn't keep reinforcing the same readings.
+4. **Correct** – the weighted mean is applied to LemLib as a partial correction, but only when the
+   cloud is tight (spread under 3"). Large jumps are held back unless they persist. The correction is
+   excluded from the next cycle's odometry change, but motion LemLib tracked during the cycle is not.
 5. **Resample** – only when the effective particle count drops below half the particle count.
    Resampling is low-variance (systematic): one random offset, then evenly spaced pointers through
    the cumulative weights, so particles are copied in proportion to their weight. All weights are
-   then reset to `1 / N`.
+   then reset to `1 / N`. When the sensors stop matching, a few random particles are added within 12"
+   of the odometry pose (not anywhere on the field, which is symmetric) so the filter can recover.
 
 Each particle stores its heading as an offset from the IMU (`heading = imu rotation + headingOffset`),
 so the filter can also correct IMU drift.

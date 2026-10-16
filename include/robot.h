@@ -8,6 +8,8 @@ extern pros::MotorGroup left_mg;
 extern pros::MotorGroup right_mg;
 
 extern pros::Imu imu;
+extern pros::adi::Encoder back_left_encoder;
+extern pros::adi::Encoder back_right_encoder;
 
 extern lemlib::Drivetrain drivetrain;
 extern lemlib::Chassis chassis;

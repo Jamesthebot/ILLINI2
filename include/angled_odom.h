@@ -44,6 +44,11 @@ void stop();
 void setPose(float x, float y, float theta);
 
 /**
+ * @brief Shift the current pose by (dx, dy, dtheta) without losing odom updates
+ */
+void offsetPose(float dx, float dy, float dtheta);
+
+/**
  * @brief Get the current pose (x, y in inches, theta in degrees)
  */
 lemlib::Pose getPose();

@@ -1,5 +1,6 @@
 #include "angled_odom.h"
 #include <cmath>
+#include <mutex>
 
 namespace angledOdom {
 
@@ -28,6 +29,23 @@ static int s_lastEnc2 = 0;
 static float s_lastImuRad = 0;
 
 static pros::Task* s_task = nullptr;
+static lemlib::Pose s_published(0, 0, 0);
+
+static pros::Mutex& poseMutex() {
+    static pros::Mutex m;
+    return m;
+}
+
+static void publish() {
+    s_published = lemlib::Pose(s_x, s_y, s_theta * RAD_TO_DEG);
+    if (s_chassis != nullptr) s_chassis->setPose(s_published, false);
+}
+
+static bool changedExternally(const lemlib::Pose& current) {
+    constexpr float tolerance = 1e-3f;
+    return std::fabs(current.x - s_published.x) > tolerance || std::fabs(current.y - s_published.y) > tolerance
+        || std::fabs(current.theta - s_published.theta) > tolerance;
+}
 
 void configure(pros::adi::Encoder* enc1, pros::adi::Encoder* enc2,
                pros::IMU* imu, lemlib::Chassis* chassis,
@@ -90,26 +108,40 @@ static void update() {
 }
 
 static void taskFn(void*) {
+    uint32_t now = pros::millis();
     while (true) {
-        update();
-        s_chassis->setPose(s_x, s_y, s_theta * RAD_TO_DEG, false);
-        pros::delay(10);
+        {
+            std::lock_guard<pros::Mutex> lock(poseMutex());
+            lemlib::Pose current = s_chassis->getPose();
+            if (changedExternally(current)) {
+                s_x = current.x;
+                s_y = current.y;
+                s_theta = current.theta * DEG_TO_RAD;
+            }
+            update();
+            publish();
+        }
+        pros::Task::delay_until(&now, 10);
     }
 }
 
 void start(float x, float y, float theta) {
-    s_x = x;
-    s_y = y;
-    s_theta = theta * DEG_TO_RAD;
-    s_lastEnc1 = s_enc1->get_value();
-    s_lastEnc2 = s_enc2->get_value();
-    s_lastImuRad = s_imu->get_rotation() * DEG_TO_RAD;
-
-    s_chassis->setPose(x, y, theta, false);
+    if (s_enc1 == nullptr || s_enc2 == nullptr || s_imu == nullptr || s_chassis == nullptr || s_task != nullptr) return;
+    {
+        std::lock_guard<pros::Mutex> lock(poseMutex());
+        s_x = x;
+        s_y = y;
+        s_theta = theta * DEG_TO_RAD;
+        s_lastEnc1 = s_enc1->get_value();
+        s_lastEnc2 = s_enc2->get_value();
+        s_lastImuRad = s_imu->get_rotation() * DEG_TO_RAD;
+        publish();
+    }
     s_task = new pros::Task(taskFn, nullptr, "angledOdom");
 }
 
 void stop() {
+    std::lock_guard<pros::Mutex> lock(poseMutex());
     if (s_task != nullptr) {
         s_task->remove();
         delete s_task;
@@ -118,13 +150,23 @@ void stop() {
 }
 
 void setPose(float x, float y, float theta) {
+    std::lock_guard<pros::Mutex> lock(poseMutex());
     s_x = x;
     s_y = y;
     s_theta = theta * DEG_TO_RAD;
-    s_chassis->setPose(x, y, theta, false);
+    publish();
+}
+
+void offsetPose(float dx, float dy, float dtheta) {
+    std::lock_guard<pros::Mutex> lock(poseMutex());
+    s_x += dx;
+    s_y += dy;
+    s_theta += dtheta * DEG_TO_RAD;
+    publish();
 }
 
 lemlib::Pose getPose() {
+    std::lock_guard<pros::Mutex> lock(poseMutex());
     return {s_x, s_y, s_theta * RAD_TO_DEG};
 }
 

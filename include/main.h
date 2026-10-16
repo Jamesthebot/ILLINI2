@@ -21,7 +21,6 @@
 #include "api.h" // DO NOT REMOVE //
 #include "pros/apix.h"
 #include "liblvgl/lvgl.h"
-#include "common/util.hpp"
 #include "lemlib/api.hpp"
 ///////////////////////////////////////
 ///////////////////////////////////////

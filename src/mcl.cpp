@@ -1,9 +1,12 @@
 #include "mcl.h"
 #include "fieldRepresentation.h"
+#include "angled_odom.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <limits>
+#include <mutex>
 #include <random>
 #include <vector>
 
@@ -12,47 +15,68 @@
 // ============================================================================
 namespace {
 
+constexpr int DEFAULT_PARTICLES = 300;
+
 constexpr double INIT_POS_STD = 1.5;
-constexpr double INIT_HEADING_STD = 2.0; 
+constexpr double INIT_HEADING_STD = 2.0;
 
 constexpr double MOTION_POS_BASE = 0.02;
 constexpr double MOTION_POS_PER_INCH = 0.05;
 constexpr double MOTION_HEADING_BASE = 0.02;
 constexpr double MOTION_HEADING_PER_DEG = 0.02;
 
-constexpr double SENSOR_MAX_RANGE = 78.0;        
-constexpr double SENSOR_SIGMA_BASE = 0.5; 
-constexpr double SENSOR_SIGMA_PER_INCH = 0.05; 
-constexpr double SENSOR_OUTLIER_PROB = 0.1;      
-constexpr int32_t SENSOR_NO_OBJECT_MM = 9999;    
+constexpr int32_t SENSOR_MIN_MM = 20;
+constexpr int32_t SENSOR_NO_OBJECT_MM = 9999;
 constexpr int32_t SENSOR_CONFIDENCE_MIN_MM = 200;
-constexpr int32_t SENSOR_MIN_CONFIDENCE = 30;    
+constexpr int32_t SENSOR_MIN_CONFIDENCE = 30;
+constexpr double SENSOR_MAX_RANGE = fieldRepresentation::maxSensorRange;
+constexpr double SENSOR_SIGMA_MIN = 15.0 / 25.4;
+constexpr double SENSOR_SIGMA_FRACTION = 0.05;
+constexpr double MODEL_SIGMA = 0.75;
+constexpr double BEAM_SPREAD = 0.1;
+constexpr double MIN_HIT_COS = 0.35;
 
-constexpr double FIELD_MIN = 0.0;
-constexpr double FIELD_MAX = 144.0;
-constexpr double FIELD_MARGIN = 2.0;             
+constexpr double P_HIT = 0.8;
+constexpr double P_SHORT = 0.12;
+constexpr double P_RANDOM = 0.08;
+constexpr double SHORT_LAMBDA = 0.05;
+
+constexpr double P_NO_RETURN_WHEN_EXPECTED = 0.15;
+constexpr double NO_RETURN_TRUST_RANGE = 48.0;
+constexpr double NO_RETURN_TRUST_COS = 0.85;
+
+constexpr double READING_NONE = -1;
+constexpr double READING_INVALID = -2;
+
+constexpr double FIELD_HALF = fieldRepresentation::fieldHalfWidth;
+constexpr double FIELD_MARGIN = 2.0;
 
 constexpr double POS_CORRECTION_GAIN = 0.3;
 constexpr double HEADING_CORRECTION_GAIN = 0.1;
 constexpr bool   CORRECT_HEADING = true;
-constexpr double MAX_CORRECTION = 6.0;           
-constexpr double MAX_HEADING_CORRECTION = 5.0;  
-constexpr int    FORCE_AFTER_REJECTIONS = 10;   
-constexpr double MAX_SPREAD_TO_CORRECT = 3.0;    
+constexpr double MAX_CORRECTION = 6.0;
+constexpr double MAX_HEADING_CORRECTION = 5.0;
+constexpr int    FORCE_AFTER_REJECTIONS = 10;
+constexpr double MAX_SPREAD_TO_CORRECT = 3.0;
+
+constexpr double WEIGH_MIN_MOVE = 0.5;
+constexpr double WEIGH_MIN_TURN = 1.0;
 
 constexpr double RESAMPLE_ESS_FRACTION = 0.5;
-constexpr double ROUGHEN_POS_STD = 0.1;         
-constexpr double ROUGHEN_HEADING_STD = 0.1;    
+constexpr double ROUGHEN_POS_STD = 0.1;
+constexpr double ROUGHEN_HEADING_STD = 0.1;
 
 constexpr double ALPHA_SLOW = 0.01;
 constexpr double ALPHA_FAST = 0.2;
 constexpr double MAX_RANDOM_FRACTION = 0.1;
+constexpr double RECOVERY_RADIUS = 12.0;
 
-constexpr uint32_t LOOP_MS = 100;     
+constexpr uint32_t LOOP_MS = 100;
 
 constexpr double PI = 3.14159265358979323846;
 constexpr double SQRT_2PI = 2.50662827463100050242;
 constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
+constexpr double INF = std::numeric_limits<double>::infinity();
 
 double toRad(double d) { return d * PI / 180.0; }
 double toDeg(double r) { return r * 180.0 / PI; }
@@ -76,18 +100,30 @@ double uniform(double lo, double hi) {
     return d(rng());
 }
 
+pros::Mutex& mclMutex() {
+    static pros::Mutex m;
+    return m;
+}
+
 bool started = false;
+bool needsScatter = true;
+int particleCount = DEFAULT_PARTICLES;
 double latestImu = 0;
 double prevImu = 0;
-double lastSpread = std::numeric_limits<double>::infinity();
+double lastSpread = INF;
 double wSlow = 0, wFast = 0;
 int rejectedTicks = 0;
+bool weighedOnce = false;
+double moveSinceWeigh = 0, turnSinceWeigh = 0;
+lemlib::Pose estimatedPose(0, 0, 0);
 
-double offsetOf(particle& p, double imuHeading) { return p.getHeading(imuHeading) - imuHeading; }
+bool finite(const lemlib::Pose& p) { return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.theta); }
 
-bool outOfField(particle& p) {
-    double lo = FIELD_MIN + FIELD_MARGIN, hi = FIELD_MAX - FIELD_MARGIN;
-    return p.getX() < lo || p.getX() > hi || p.getY() < lo || p.getY() > hi;
+double offsetOf(const particle& p, double imuHeading) { return p.getHeading(imuHeading) - imuHeading; }
+
+bool outOfField(const particle& p) {
+    double limit = FIELD_HALF - FIELD_MARGIN;
+    return !(std::fabs(p.getX()) <= limit && std::fabs(p.getY()) <= limit);
 }
 
 void scatter(std::vector<particle>& ps, double x, double y, double offset, double posStd, double headingStd) {
@@ -98,48 +134,70 @@ void scatter(std::vector<particle>& ps, double x, double y, double offset, doubl
     }
 }
 
-int32_t readOneMm(pros::Distance& sensor) {
+double readInches(pros::Distance& sensor) {
     int32_t mm = sensor.get();
-    if (mm == PROS_ERR || mm <= 0 || mm >= SENSOR_NO_OBJECT_MM) return -1;
+    if (mm == PROS_ERR) return READING_INVALID;
+    if (mm >= SENSOR_NO_OBJECT_MM) return READING_NONE;
+    if (mm < SENSOR_MIN_MM) return READING_INVALID;
     if (mm > SENSOR_CONFIDENCE_MIN_MM) {
         int32_t conf = sensor.get_confidence();
-        if (conf == PROS_ERR || conf < SENSOR_MIN_CONFIDENCE) return -1;
+        if (conf == PROS_ERR || conf < SENSOR_MIN_CONFIDENCE) return READING_INVALID;
     }
-    return mm;
+    double in = mm / 25.4;
+    return in > SENSOR_MAX_RANGE ? READING_NONE : in;
 }
 
-double sensorLogLikelihood(double simulated, double measured) {
-    if (measured < 0) return 0.0;
-    const double outlier = SENSOR_OUTLIER_PROB / SENSOR_MAX_RANGE;
-    if (simulated > SENSOR_MAX_RANGE) return std::log(outlier); // particle says nothing should be in range
-    double sigma = SENSOR_SIGMA_BASE + SENSOR_SIGMA_PER_INCH * measured;
-    double e = simulated - measured;
-    double gauss = std::exp(-e * e / (2 * sigma * sigma)) / (sigma * SQRT_2PI);
-    return std::log((1 - SENSOR_OUTLIER_PROB) * gauss + outlier);
+void warnIfMissing(pros::Distance& sensor, const char* name) {
+    if (!sensor.is_installed()) printf("[MCL] %s distance sensor not detected on port %d\n", name, sensor.get_port());
 }
 
-void applyCorrection(const lemlib::Pose& est) {
-    if (lastSpread > MAX_SPREAD_TO_CORRECT) { rejectedTicks = 0; return; }
+double sensorLogLikelihood(double simulated, double simulatedCos, double measured) {
+    if (measured == READING_INVALID) return 0.0;
+    bool simHit = simulated >= 0;
+
+    if (measured == READING_NONE) {
+        bool expected = simHit && simulated < NO_RETURN_TRUST_RANGE && simulatedCos > NO_RETURN_TRUST_COS;
+        return expected ? std::log(P_NO_RETURN_WHEN_EXPECTED) : 0.0;
+    }
+
+    double p = P_RANDOM / SENSOR_MAX_RANGE;
+
+    double shortRange = simHit ? simulated : SENSOR_MAX_RANGE;
+    if (measured < shortRange) {
+        p += P_SHORT * SHORT_LAMBDA * std::exp(-SHORT_LAMBDA * measured) / (1 - std::exp(-SHORT_LAMBDA * shortRange));
+    }
+
+    if (simHit) {
+        double c = std::max(simulatedCos, MIN_HIT_COS);
+        double tanIncidence = std::sqrt(1 - c * c) / c;
+        double sensorSigma = std::max(SENSOR_SIGMA_MIN, SENSOR_SIGMA_FRACTION * simulated);
+        double spreadSigma = BEAM_SPREAD * simulated * tanIncidence;
+        double sigma = std::sqrt(sensorSigma * sensorSigma + MODEL_SIGMA * MODEL_SIGMA + spreadSigma * spreadSigma);
+        double e = measured - simulated;
+        p += P_HIT * std::exp(-e * e / (2 * sigma * sigma)) / (sigma * SQRT_2PI);
+    }
+    return std::log(p);
+}
+
+lemlib::Pose applyCorrection(const lemlib::Pose& est) {
+    lemlib::Pose none(0, 0, 0);
+    if (!finite(est) || !(lastSpread <= MAX_SPREAD_TO_CORRECT)) { rejectedTicks = 0; return none; }
     lemlib::Pose pose = chassis.getPose();
+    if (!finite(pose)) return none;
     double cx = est.x - pose.x;
     double cy = est.y - pose.y;
     double ct = CORRECT_HEADING ? wrap180(est.theta - pose.theta) : 0.0;
 
     bool tooBig = std::hypot(cx, cy) > MAX_CORRECTION || std::fabs(ct) > MAX_HEADING_CORRECTION;
-    if (tooBig && ++rejectedTicks < FORCE_AFTER_REJECTIONS) return; // probably a glitch; persistent = real
+    if (tooBig && ++rejectedTicks < FORCE_AFTER_REJECTIONS) return none; // probably a glitch; persistent = real
     rejectedTicks = 0;
 
-    chassis.setPose(pose.x + POS_CORRECTION_GAIN * cx,
-                    pose.y + POS_CORRECTION_GAIN * cy,
-                    pose.theta + HEADING_CORRECTION_GAIN * ct);
+    lemlib::Pose correction(POS_CORRECTION_GAIN * cx, POS_CORRECTION_GAIN * cy, HEADING_CORRECTION_GAIN * ct);
+    angledOdom::offsetPose(correction.x, correction.y, correction.theta);
+    return correction;
 }
 
 }
-
-double startingX = 36;
-double startingY = 36;
-
-lemlib::Pose estimatedPose(0, 0, 0);
 
 fieldRepresentation::distanceSensorDistances MCL::sensorData_;
 std::vector<particle> MCL::particles_;
@@ -147,45 +205,84 @@ lemlib::Pose MCL::prevPose(0, 0, 0);
 
 fieldRepresentation& MCL::getField() {
     static fieldRepresentation field;
+    return field;
 }
 
 // ============================================================================
 // MCL
 // ============================================================================
 void MCL::init(int numParticles) {
-    if (started || numParticles <= 0) return; 
+    if (started || numParticles <= 0) return;
     started = true;
+    particleCount = numParticles;
 
-    latestImu = prevImu = imu.get_rotation(); 
-    double startOffset = chassis.getPose().theta - latestImu;
-
-    particles_.assign(numParticles, particle());
-    scatter(particles_, startingX, startingY, startOffset, INIT_POS_STD, INIT_HEADING_STD);
-    wSlow = wFast = 0;
-    estimatedPose = chassis.getPose();
+    warnIfMissing(distanceFront, "front");
+    warnIfMissing(distanceRight, "right");
+    warnIfMissing(distanceBack, "back");
+    warnIfMissing(distanceLeft, "left");
 
     pros::Task mclTask([] {
-        prevPose = chassis.getPose();
         uint32_t now = pros::millis();
         while (true) {
-            sensorData_ = readSensors();
-            latestImu = imu.get_rotation();
-
-            lemlib::Pose pose = chassis.getPose();
-            lemlib::Pose delta = pose - prevPose;
-            double th = toRad(prevPose.theta + delta.theta / 2.0); // midpoint heading
-            double forward = delta.x * std::sin(th) + delta.y * std::cos(th);
-            double right   = delta.x * std::cos(th) - delta.y * std::sin(th);
-            update(forward, right, latestImu);
-
-            estimatedPose = weigh(getField());
-            applyCorrection(estimatedPose);
-            prevPose = chassis.getPose(); 
-
-            if (effectiveParticleCount() < particles_.size() * RESAMPLE_ESS_FRACTION) resample();
+            {
+                std::lock_guard<pros::Mutex> lock(mclMutex());
+                step();
+            }
             pros::Task::delay_until(&now, LOOP_MS);
         }
-    });
+    }, "MCL");
+}
+
+void MCL::reset(lemlib::Pose pose) {
+    std::lock_guard<pros::Mutex> lock(mclMutex());
+    angledOdom::setPose(pose.x, pose.y, pose.theta);
+    needsScatter = true;
+}
+
+void MCL::step() {
+    double imuNow = imu.get_rotation();
+    lemlib::Pose pose = chassis.getPose();
+    if (!std::isfinite(imuNow) || !finite(pose)) return;
+
+    if (needsScatter) {
+        needsScatter = false;
+        latestImu = prevImu = imuNow;
+        prevPose = pose;
+        particles_.assign(particleCount, particle());
+        scatter(particles_, pose.x, pose.y, pose.theta - imuNow, INIT_POS_STD, INIT_HEADING_STD);
+        wSlow = wFast = 0;
+        rejectedTicks = 0;
+        weighedOnce = false;
+        moveSinceWeigh = turnSinceWeigh = 0;
+        estimatedPose = pose;
+        lastSpread = INF;
+        return;
+    }
+
+    sensorData_ = readSensors();
+    latestImu = imuNow;
+
+    lemlib::Pose delta = pose - prevPose;
+    double th = toRad(prevPose.theta + delta.theta / 2.0); // midpoint heading
+    double forward = delta.x * std::sin(th) + delta.y * std::cos(th);
+    double right   = delta.x * std::cos(th) - delta.y * std::sin(th);
+    moveSinceWeigh += std::hypot(forward, right);
+    turnSinceWeigh += std::fabs(latestImu - prevImu);
+    update(forward, right, latestImu);
+
+    bool moved = !weighedOnce || moveSinceWeigh >= WEIGH_MIN_MOVE || turnSinceWeigh >= WEIGH_MIN_TURN;
+    if (moved && sensorData_.updated) {
+        estimatedPose = weigh(getField());
+        weighedOnce = true;
+        moveSinceWeigh = turnSinceWeigh = 0;
+    } else {
+        estimatedPose = estimate(latestImu);
+    }
+
+    lemlib::Pose correction = applyCorrection(estimatedPose);
+    prevPose = lemlib::Pose(pose.x + correction.x, pose.y + correction.y, pose.theta + correction.theta);
+
+    if (effectiveParticleCount() < particles_.size() * RESAMPLE_ESS_FRACTION) resample();
 }
 
 void MCL::update(double forward, double right, double imuHeading) {
@@ -208,15 +305,12 @@ void MCL::update(double forward, double right, double imuHeading) {
 }
 
 lemlib::Pose MCL::weigh(fieldRepresentation& field) {
-    lemlib::Pose current = chassis.getPose();
-    if (particles_.empty() || !sensorData_.updated) {
-        lastSpread = std::numeric_limits<double>::infinity();
-        return current;
-    }
+    double imuHeading = latestImu;
+    if (particles_.empty() || !sensorData_.updated) return estimate(imuHeading);
 
     const auto& z = sensorData_;
-    int validSensors = (z.frontDistance >= 0) + (z.rightDistance >= 0) + (z.backDistance >= 0) + (z.leftDistance >= 0);
-    double imuHeading = latestImu;
+    int informative = (z.frontDistance != READING_INVALID) + (z.rightDistance != READING_INVALID)
+                    + (z.backDistance != READING_INVALID) + (z.leftDistance != READING_INVALID);
     size_t n = particles_.size();
 
     static std::vector<double> logW;
@@ -226,18 +320,19 @@ lemlib::Pose MCL::weigh(fieldRepresentation& field) {
 
     for (size_t i = 0; i < n; i++) {
         particle& p = particles_[i];
-        if (outOfField(p) || p.getWeight() <= 0) continue;
+        if (outOfField(p) || field.insideObstacle(p.getX(), p.getY()) || !(p.getWeight() > 0)) continue;
 
         fieldRepresentation::distanceSensorDistances sim =
             field.simulateCast(p.getPosition(), p.getHeading(imuHeading));
 
-        double ll = sensorLogLikelihood(sim.frontDistance, z.frontDistance)
-                  + sensorLogLikelihood(sim.rightDistance, z.rightDistance)
-                  + sensorLogLikelihood(sim.backDistance,  z.backDistance)
-                  + sensorLogLikelihood(sim.leftDistance,  z.leftDistance);
+        double ll = sensorLogLikelihood(sim.frontDistance, sim.frontCos, z.frontDistance)
+                  + sensorLogLikelihood(sim.rightDistance, sim.rightCos, z.rightDistance)
+                  + sensorLogLikelihood(sim.backDistance,  sim.backCos,  z.backDistance)
+                  + sensorLogLikelihood(sim.leftDistance,  sim.leftCos,  z.leftDistance);
+        if (!std::isfinite(ll)) continue;
 
-        likelihoodSum += std::exp(ll / validSensors);
-        logW[i] = std::log(p.getWeight()) + ll;    
+        likelihoodSum += std::exp(ll / informative);
+        logW[i] = std::log(p.getWeight()) + ll;
         maxLogW = std::max(maxLogW, logW[i]);
     }
 
@@ -249,32 +344,50 @@ lemlib::Pose MCL::weigh(fieldRepresentation& field) {
     }
 
     if (maxLogW == NEG_INF) {
-        scatter(particles_, current.x, current.y, current.theta - imuHeading, INIT_POS_STD * 2, INIT_HEADING_STD);
-        lastSpread = std::numeric_limits<double>::infinity();
+        lemlib::Pose current = chassis.getPose();
+        if (finite(current)) {
+            scatter(particles_, current.x, current.y, current.theta - imuHeading, INIT_POS_STD * 2, INIT_HEADING_STD);
+        }
+        lastSpread = INF;
         return current;
     }
 
     double total = 0;
     for (size_t i = 0; i < n; i++) total += std::exp(logW[i] - maxLogW);
+    for (size_t i = 0; i < n; i++) particles_[i].setWeight(std::exp(logW[i] - maxLogW) / total);
 
-    double mx = 0, my = 0, sinSum = 0, cosSum = 0;
-    for (size_t i = 0; i < n; i++) {
-        double w = std::exp(logW[i] - maxLogW) / total;
-        particle& p = particles_[i];
-        p.setWeight(w);
+    return estimate(imuHeading);
+}
+
+lemlib::Pose MCL::estimate(double imuHeading) {
+    lemlib::Pose current = chassis.getPose();
+
+    double sumW = 0, mx = 0, my = 0, sinSum = 0, cosSum = 0;
+    for (const auto& p : particles_) {
+        double w = p.getWeight();
+        if (!(w > 0)) continue;
+        sumW += w;
         mx += w * p.getX();
         my += w * p.getY();
         double off = toRad(offsetOf(p, imuHeading));
         sinSum += w * std::sin(off);
         cosSum += w * std::cos(off);
     }
+    if (!(sumW > 0)) {
+        lastSpread = INF;
+        return current;
+    }
+    mx /= sumW;
+    my /= sumW;
 
     double var = 0;
-    for (auto& p : particles_) {
+    for (const auto& p : particles_) {
+        double w = p.getWeight();
+        if (!(w > 0)) continue;
         double ex = p.getX() - mx, ey = p.getY() - my;
-        var += p.getWeight() * (ex * ex + ey * ey);
+        var += w * (ex * ex + ey * ey);
     }
-    lastSpread = std::sqrt(var);
+    lastSpread = std::sqrt(var / sumW);
 
     double estTheta = imuHeading + toDeg(std::atan2(sinSum, cosSum));
     estTheta = current.theta + wrap180(estTheta - current.theta);
@@ -293,24 +406,13 @@ double MCL::effectiveParticleCount() {
 }
 
 fieldRepresentation::distanceSensorDistances MCL::readSensors() {
-    int32_t front = readOneMm(distanceFront);
-    int32_t right = readOneMm(distanceRight);
-    int32_t back  = readOneMm(distanceBack);
-    int32_t left  = readOneMm(distanceLeft);
-
-    auto toIn = [](int32_t mm) {
-        if (mm < 0) return -1.0;
-        double in = mmToInches(mm);
-        return in > SENSOR_MAX_RANGE ? -1.0 : in;
-    };
-
     fieldRepresentation::distanceSensorDistances data;
-    data.frontDistance = toIn(front);
-    data.rightDistance = toIn(right);
-    data.backDistance  = toIn(back);
-    data.leftDistance  = toIn(left);
-    data.updated = data.frontDistance >= 0 || data.rightDistance >= 0
-                || data.backDistance >= 0  || data.leftDistance >= 0;
+    data.frontDistance = readInches(distanceFront);
+    data.rightDistance = readInches(distanceRight);
+    data.backDistance  = readInches(distanceBack);
+    data.leftDistance  = readInches(distanceLeft);
+    data.updated = data.frontDistance != READING_INVALID || data.rightDistance != READING_INVALID
+                || data.backDistance != READING_INVALID  || data.leftDistance != READING_INVALID;
     return data;
 }
 
@@ -344,11 +446,13 @@ void MCL::resample() {
     double randomFrac = wSlow > 0 ? std::clamp(1.0 - wFast / wSlow, 0.0, MAX_RANDOM_FRACTION) : 0.0;
     double imuHeading = latestImu;
     double meanOffset = estimatedPose.theta - imuHeading;
+    lemlib::Pose odom = chassis.getPose();
 
     for (auto& p : out) {
         if (randomFrac > 0 && uniform(0.0, 1.0) < randomFrac) {
-            p.setPosition(uniform(FIELD_MIN + FIELD_MARGIN, FIELD_MAX - FIELD_MARGIN),
-                          uniform(FIELD_MIN + FIELD_MARGIN, FIELD_MAX - FIELD_MARGIN));
+            double r = RECOVERY_RADIUS * std::sqrt(uniform(0.0, 1.0));
+            double a = uniform(0.0, 2 * PI);
+            p.setPosition(odom.x + r * std::cos(a), odom.y + r * std::sin(a));
             p.setHeadingOffset(meanOffset + gaussian(INIT_HEADING_STD));
         } else {
             double off = offsetOf(p, imuHeading);

@@ -19,7 +19,7 @@ fieldRepresentation::fieldRepresentation(vector<distanceSensor> sensors, vector<
 vector<fieldRepresentation::fieldObject> fieldRepresentation::fieldObjects() {
     vector<fieldObject> objects;
 
-    objects.push_back(fieldObject{"wall", vector3(-70.1968, -70.1968, -0.622), vector3(70.1968, 70.1968, 11.5368), true});
+    objects.push_back(fieldObject{"wall", vector3(-fieldHalfWidth, -fieldHalfWidth, -0.622), vector3(fieldHalfWidth, fieldHalfWidth, 11.5368), true});
 
     objects.push_back(fieldObject{"loader", vector3(66.4645, 56.346, 3.248), vector3(70.1968, 61.1804, 14.3701)}); // Blue loader tube
     objects.push_back(fieldObject{"loader", vector3(-70.1968, -61.1804, 3.5573), vector3(-66.4645, -56.346, 14.6793)}); // Red loader tube
@@ -41,11 +41,10 @@ vector<fieldRepresentation::fieldObject> fieldRepresentation::fieldObjects() {
 
 vector<distanceSensor> fieldRepresentation::distanceSensors() {
     vector<distanceSensor> sensors;
-    //0 front, 1 right, 2 back, 3 left
-    sensors.push_back(distanceSensor(0, vector3(0, 0, 0), distanceFront));
-    sensors.push_back(distanceSensor(90, vector3(0, 0, 0), distanceRight));
-    sensors.push_back(distanceSensor(180, vector3(0, 0, 0), distanceBack));
-    sensors.push_back(distanceSensor(270, vector3(0, 0, 0), distanceLeft));
+    sensors.push_back(distanceSensor(0, vector3(-1, 1.75, 3), distanceFront));
+    sensors.push_back(distanceSensor(90, vector3(9.75, 0, 3), distanceRight));
+    sensors.push_back(distanceSensor(180, vector3(-1, -1.75, 3), distanceBack));
+    sensors.push_back(distanceSensor(270, vector3(-10, 0, 3), distanceLeft));
 
     return sensors;
 }
@@ -56,6 +55,7 @@ fieldRepresentation::distanceSensorDistances fieldRepresentation::simulateCast(v
     double c = std::cos(deg2rad(particleHeading));
 
     double results[4] = {-1, -1, -1, -1}; //0 front, 1 right, 2 back, 3 left, same order as distanceSensors()
+    double cosines[4] = {1, 1, 1, 1};
     for (size_t i = 0; i < sensors_.size() && i < 4; i++) {
         const distanceSensor& sensor = sensors_[i];
         vector3 offset = sensor.getCenterOffset();
@@ -65,7 +65,7 @@ fieldRepresentation::distanceSensorDistances fieldRepresentation::simulateCast(v
 
         vector3 sensorPos = particlePos + vector3(offset.x() * c + offset.y() * s, offset.y() * c - offset.x() * s, offset.z());
         vector3 sensorDir(dx * c + dy * s, dy * c - dx * s, 0);
-        results[i] = closestHit(sensorCandidates_[i], sensorPos, sensorDir);
+        results[i] = closestHit(sensorCandidates_[i], sensorPos, sensorDir, cosines[i]);
     }
 
     distanceSensorDistances distances;
@@ -73,24 +73,40 @@ fieldRepresentation::distanceSensorDistances fieldRepresentation::simulateCast(v
     distances.rightDistance = results[1];
     distances.backDistance = results[2];
     distances.leftDistance = results[3];
+    distances.frontCos = cosines[0];
+    distances.rightCos = cosines[1];
+    distances.backCos = cosines[2];
+    distances.leftCos = cosines[3];
     distances.updated = true;
     return distances;
 }
 
-double fieldRepresentation::closestHit(const vector<fieldObject>& candidates, vector3 sensorPos, vector3 sensorDir) {
+bool fieldRepresentation::insideObstacle(double x, double y) const {
+    for (const fieldObject& object : objects_) {
+        if (object.interior) continue;
+        if (x >= object.min.x() && x <= object.max.x() && y >= object.min.y() && y <= object.max.y()) return true;
+    }
+    return false;
+}
+
+double fieldRepresentation::closestHit(const vector<fieldObject>& candidates, vector3 sensorPos, vector3 sensorDir, double& hitCos) {
     double closest = maxSensorRange;
     bool hit = false;
+    int closestAxis = 0;
     for (const fieldObject& object : candidates) {
-        double distance = hitDistance(object, sensorPos, sensorDir, closest);
+        int axis = 0;
+        double distance = hitDistance(object, sensorPos, sensorDir, closest, axis);
         if (distance >= 0 && distance < closest) {
             closest = distance;
+            closestAxis = axis;
             hit = true;
         }
     }
+    hitCos = std::fabs(closestAxis == 0 ? sensorDir.x() : sensorDir.y());
     return hit ? closest : -1;
 }
 
-double fieldRepresentation::hitDistance(const fieldObject& object, vector3 sensorPos, vector3 sensorDir, double closestSoFar)  { //return -1 if not hit or not closer than closestSoFar
+double fieldRepresentation::hitDistance(const fieldObject& object, vector3 sensorPos, vector3 sensorDir, double closestSoFar, int& hitAxis)  { //return -1 if not hit or not closer than closestSoFar
     //https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes//ray-box-intersection.html
     vector3 objectMax = getMax(object);
     vector3 objectMin = getMin(object);
@@ -131,7 +147,11 @@ double fieldRepresentation::hitDistance(const fieldObject& object, vector3 senso
 
     if (tmin_x > tmax_y || tmin_y > tmax_x) return -1;
     double tmin = (tmin_x > tmin_y) ? tmin_x : tmin_y;
-    if (object.interior && tmin < 0) return (tmax_x < tmax_y) ? tmax_x : tmax_y; // sensor inside the box: hit where the ray exits
+    if (object.interior && tmin < 0) { // sensor inside the box: hit where the ray exits
+        hitAxis = (tmax_x < tmax_y) ? 0 : 1;
+        return (tmax_x < tmax_y) ? tmax_x : tmax_y;
+    }
     if (tmin < 0) return -1;
+    hitAxis = (tmin_x > tmin_y) ? 0 : 1;
     return tmin;
 }

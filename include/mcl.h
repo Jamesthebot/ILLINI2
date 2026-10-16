@@ -15,10 +15,13 @@ class MCL {
         static fieldRepresentation& getField();
         static fieldRepresentation::distanceSensorDistances readSensors();
         static double effectiveParticleCount();
+        static lemlib::Pose estimate(double imuHeading);
+        static void step();
     public:
         static void setSensorData(fieldRepresentation::distanceSensorDistances data) { sensorData_ = data; }
 
         static void init(int numParticles);
+        static void reset(lemlib::Pose pose);
         static void update(double forward, double right, double imuHeading); // robot-frame odometry change, inches
         static lemlib::Pose weigh(fieldRepresentation& field);
         static void resample();
