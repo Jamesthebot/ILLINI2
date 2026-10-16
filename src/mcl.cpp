@@ -182,7 +182,7 @@ double sensorLogLikelihood(double simulated, double simulatedCos, double measure
 lemlib::Pose applyCorrection(const lemlib::Pose& est) {
     lemlib::Pose none(0, 0, 0);
     if (!finite(est) || !(lastSpread <= MAX_SPREAD_TO_CORRECT)) { rejectedTicks = 0; return none; }
-    lemlib::Pose pose = chassis.getPose();
+    lemlib::Pose pose = angledOdom::getPose();
     if (!finite(pose)) return none;
     double cx = est.x - pose.x;
     double cy = est.y - pose.y;
@@ -241,7 +241,7 @@ void MCL::reset(lemlib::Pose pose) {
 
 void MCL::step() {
     double imuNow = imu.get_rotation();
-    lemlib::Pose pose = chassis.getPose();
+    lemlib::Pose pose = angledOdom::getPose();
     if (!std::isfinite(imuNow) || !finite(pose)) return;
 
     if (needsScatter) {
@@ -344,7 +344,7 @@ lemlib::Pose MCL::weigh(fieldRepresentation& field) {
     }
 
     if (maxLogW == NEG_INF) {
-        lemlib::Pose current = chassis.getPose();
+        lemlib::Pose current = angledOdom::getPose();
         if (finite(current)) {
             scatter(particles_, current.x, current.y, current.theta - imuHeading, INIT_POS_STD * 2, INIT_HEADING_STD);
         }
@@ -360,7 +360,7 @@ lemlib::Pose MCL::weigh(fieldRepresentation& field) {
 }
 
 lemlib::Pose MCL::estimate(double imuHeading) {
-    lemlib::Pose current = chassis.getPose();
+    lemlib::Pose current = angledOdom::getPose();
 
     double sumW = 0, mx = 0, my = 0, sinSum = 0, cosSum = 0;
     for (const auto& p : particles_) {
@@ -446,7 +446,7 @@ void MCL::resample() {
     double randomFrac = wSlow > 0 ? std::clamp(1.0 - wFast / wSlow, 0.0, MAX_RANDOM_FRACTION) : 0.0;
     double imuHeading = latestImu;
     double meanOffset = estimatedPose.theta - imuHeading;
-    lemlib::Pose odom = chassis.getPose();
+    lemlib::Pose odom = angledOdom::getPose();
 
     for (auto& p : out) {
         if (randomFrac > 0 && uniform(0.0, 1.0) < randomFrac) {

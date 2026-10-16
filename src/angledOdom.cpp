@@ -1,5 +1,7 @@
 #include "angled_odom.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <mutex>
 
 namespace angledOdom {
@@ -7,6 +9,9 @@ namespace angledOdom {
 static constexpr float INV_SQRT2 = 0.70710678118f;
 static constexpr float DEG_TO_RAD = M_PI / 180.0f;
 static constexpr float RAD_TO_DEG = 180.0f / M_PI;
+static constexpr float MAX_WHEEL_SPEED = 150.0f;
+static constexpr float MAX_TURN_RATE = 2000.0f * DEG_TO_RAD;
+static constexpr float MIN_ELAPSED = 0.01f;
 
 static pros::adi::Encoder* s_enc1 = nullptr;
 static pros::adi::Encoder* s_enc2 = nullptr;
@@ -27,6 +32,7 @@ static float s_theta = 0;
 static int s_lastEnc1 = 0;
 static int s_lastEnc2 = 0;
 static float s_lastImuRad = 0;
+static uint32_t s_lastTime = 0;
 
 static pros::Task* s_task = nullptr;
 static lemlib::Pose s_published(0, 0, 0);
@@ -63,21 +69,30 @@ void configure(pros::adi::Encoder* enc1, pros::adi::Encoder* enc2,
     s_enc2Scale = enc2Scale;
 }
 
-static void update() {
-    int raw1 = s_enc1->get_value();
-    int raw2 = s_enc2->get_value();
+static bool measure(float& localX, float& localY, float& deltaTheta) {
+    int32_t raw1 = s_enc1->get_value();
+    int32_t raw2 = s_enc2->get_value();
+    double rotation = s_imu->get_rotation();
+    if (raw1 == PROS_ERR || raw2 == PROS_ERR || !std::isfinite(rotation)) return false;
 
-    float d1 = (raw1 - s_lastEnc1) * s_inchesPerTick * s_enc1Scale;
-    float d2 = (raw2 - s_lastEnc2) * s_inchesPerTick * s_enc2Scale;
+    uint32_t now = pros::millis();
+    float elapsed = std::max((now - s_lastTime) / 1000.0f, MIN_ELAPSED);
+    s_lastTime = now;
+
+    float d1 = static_cast<float>(static_cast<int64_t>(raw1) - s_lastEnc1) * s_inchesPerTick * s_enc1Scale;
+    float d2 = static_cast<float>(static_cast<int64_t>(raw2) - s_lastEnc2) * s_inchesPerTick * s_enc2Scale;
     s_lastEnc1 = raw1;
     s_lastEnc2 = raw2;
+    float maxTravel = MAX_WHEEL_SPEED * elapsed;
+    if (!(std::fabs(d1) <= maxTravel && std::fabs(d2) <= maxTravel)) d1 = d2 = 0;
 
     float deltaForward = (d1 + d2) * INV_SQRT2;
     float deltaStrafe  = (d1 - d2) * INV_SQRT2;
 
-    float imuRad = s_imu->get_rotation() * DEG_TO_RAD;
-    float deltaTheta = imuRad - s_lastImuRad;
+    float imuRad = rotation * DEG_TO_RAD;
+    deltaTheta = imuRad - s_lastImuRad;
     s_lastImuRad = imuRad;
+    if (!(std::fabs(deltaTheta) <= MAX_TURN_RATE * elapsed)) deltaTheta = 0;
 
     float fwdOffset = (s_enc1Offset + s_enc2Offset) * INV_SQRT2;
     float strOffset = (s_enc1Offset - s_enc2Offset) * INV_SQRT2;
@@ -85,7 +100,6 @@ static void update() {
     deltaForward -= fwdOffset * deltaTheta;
     deltaStrafe  -= strOffset * deltaTheta;
 
-    float localX, localY;
     if (std::fabs(deltaTheta) < 1e-6f) {
         localX = deltaStrafe;
         localY = deltaForward;
@@ -95,7 +109,10 @@ static void update() {
         localX = sinRatio * (deltaStrafe / deltaTheta);
         localY = sinRatio * (deltaForward / deltaTheta);
     }
+    return true;
+}
 
+static void integrate(float localX, float localY, float deltaTheta) {
     float avgTheta = s_theta + deltaTheta / 2.0f;
     float cosA = std::cos(avgTheta);
     float sinA = std::sin(avgTheta);
@@ -110,6 +127,8 @@ static void update() {
 static void taskFn(void*) {
     uint32_t now = pros::millis();
     while (true) {
+        float localX, localY, deltaTheta;
+        bool measured = measure(localX, localY, deltaTheta);
         {
             std::lock_guard<pros::Mutex> lock(poseMutex());
             lemlib::Pose current = s_chassis->getPose();
@@ -118,7 +137,7 @@ static void taskFn(void*) {
                 s_y = current.y;
                 s_theta = current.theta * DEG_TO_RAD;
             }
-            update();
+            if (measured) integrate(localX, localY, deltaTheta);
             publish();
         }
         pros::Task::delay_until(&now, 10);
@@ -135,6 +154,7 @@ void start(float x, float y, float theta) {
         s_lastEnc1 = s_enc1->get_value();
         s_lastEnc2 = s_enc2->get_value();
         s_lastImuRad = s_imu->get_rotation() * DEG_TO_RAD;
+        s_lastTime = pros::millis();
         publish();
     }
     s_task = new pros::Task(taskFn, nullptr, "angledOdom");

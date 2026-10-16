@@ -1,6 +1,6 @@
 #pragma once
-#include "main.h"
 #include "api.h"
+#include "lemlib/api.hpp"
 
 
 namespace angledOdom {
@@ -17,7 +17,7 @@ namespace angledOdom {
  * @param enc2Offset Perpendicular offset of enc2 from tracking center (inches)
  * @param enc1Scale Scale factor for enc1 distance (1.0 = no correction)
  * @param enc2Scale Scale factor for enc2 distance (1.0 = no correction)
- * @param ticksPerRotation Encoder ticks per full rotation (8192 for ADI quadrature)
+ * @param ticksPerRotation Encoder ticks per full rotation (8192 for a 2048 CPR encoder such as the AMT102, 360 for the VEX optical shaft encoder)
  */
 void configure(pros::adi::Encoder* enc1, pros::adi::Encoder* enc2,
                pros::IMU* imu, lemlib::Chassis* chassis,
