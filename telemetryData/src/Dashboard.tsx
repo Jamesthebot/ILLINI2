@@ -35,6 +35,14 @@ export default function Dashboard() {
     const [darkMode, setDarkMode] = useState<boolean>(false);
     const [zoom, setZoom] = useState<number>(() => window.innerHeight / CONTENT_HEIGHT_PX);
 
+    const [scrollY, setScrollY] = useState<number>(window.scrollY);
+
+    useEffect(() => {
+        const onScroll = () => setScrollY(window.scrollY);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
     useEffect(() => {
         const onResize = () => setZoom(window.innerHeight / CONTENT_HEIGHT_PX);
         window.addEventListener('resize', onResize);
@@ -151,7 +159,7 @@ export default function Dashboard() {
             </div>
 
             <div style={{
-                position: 'fixed', top: '20px', right: '20px', zIndex: 5, padding: '8px',
+                position: 'fixed', top: `${20 - scrollY / zoom}px`, right: '20px', zIndex: 5, padding: '8px',
                 background: darkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
                 display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px',
             }}>
