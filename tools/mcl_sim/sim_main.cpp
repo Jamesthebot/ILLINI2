@@ -28,7 +28,6 @@ namespace {
 constexpr int NUM_PARTICLES = 300;
 constexpr int NUM_SENSORS = 4;
 constexpr uint32_t PHYSICS_MS = 10;
-constexpr uint32_t MCL_MS = 100;
 constexpr double MAX_SIM_SECONDS = 60.0;
 
 constexpr double DRIVE_SPEED = 30.0;
@@ -203,7 +202,7 @@ lemlib::Pose angledOdom::getPose() {
 
 int main(int argc, char** argv) {
     const char* path = argc > 1 ? argv[1] : "sim_telemetry.csv";
-    telemetry* log = new telemetry(path, NUM_PARTICLES, NUM_SENSORS);
+    telemetry* log = new telemetry(path, NUM_PARTICLES, NUM_SENSORS, MCL::LOOP_MS);
     if (!log->isOpen()) {
         printf("could not open %s\n", path);
         return 1;
@@ -223,7 +222,7 @@ int main(int argc, char** argv) {
     bool moving = true;
     uint32_t nextPrintMs = 1000;
     while (moving && simMs < MAX_SIM_SECONDS * 1000) {
-        for (uint32_t t = 0; t < MCL_MS; t += PHYSICS_MS) {
+        for (uint32_t t = 0; t < MCL::LOOP_MS; t += PHYSICS_MS) {
             moving = physicsStep(PHYSICS_MS / 1000.0);
             if (!moving) break;
         }

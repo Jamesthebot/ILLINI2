@@ -20,6 +20,8 @@ class MCL {
         static void step();
         static void writeTelemetry();
     public:
+        static constexpr uint32_t LOOP_MS = 100;
+
         static void setSensorData(fieldRepresentation::distanceSensorDistances data) { sensorData_ = data; }
 
         static void setTelemetry(telemetry* log);

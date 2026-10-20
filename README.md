@@ -100,8 +100,9 @@ for the scripts that extract them (`Resources/field-model/field_boxes.json`) and
 
 `telemetryData/` is a small React + TypeScript (Vite) page for stepping through an MCL run. Upload the
 CSV the robot writes to the SD card, then move through it one frame (one MCL step) at a time with
-**Back** / **Forward**, or use **Play** / **Pause** / **Restart**. Playback assumes 100 ms per frame (the MCL
-loop period). **Playback rate** scales that (2 = twice real time), and frames are skipped if drawing
+**Back** / **Forward**, or use **Play** / **Pause** / **Restart**. The frame index is shown with the time
+in seconds, and playback runs at the log's `FramePeriodMs` (100 ms, the MCL loop period, for logs
+without it). **Playback rate** scales that (2 = twice real time), and frames are skipped if drawing
 can't keep up. Each frame draws, on a top-down 144" x 144" field:
 
 - the robot at its odometry pose, sized by the **Robot width (x)** / **Robot length (y)** fields
@@ -119,11 +120,13 @@ logger to other robot code.
 
 `telemetry` (`include/telemetry.h`, `src/telemetry.cpp`) writes the CSV. `initialize()` creates
 `/usd/telemetry.csv` and passes it to `MCL::setTelemetry`, and MCL writes a frame at the end of every step.
-The file starts with two metadata lines, followed by a header sized from them:
+The file starts with three metadata lines, followed by a header sized from the first two.
+`FramePeriodMs` is the time between frames (`MCL::LOOP_MS`):
 
 ```
 MaxParticles,300
 NumDistanceSensors,4
+FramePeriodMs,100
 X,Y,Theta,NumParticles,DistanceSensorReading0,DistanceSensorOffset0,DistanceSensorDirection0,...,ParticlePosition0,ParticleWeight0,SimulatedDistance0_0,...
 ```
 

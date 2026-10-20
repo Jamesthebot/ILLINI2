@@ -5,7 +5,7 @@ constexpr int FLUSH_EVERY_FRAMES = 10;
 constexpr size_t WRITE_BUFFER_BYTES = 16384;
 }
 
-telemetry::telemetry(const char* path, int maxParticles, int numSensors)
+telemetry::telemetry(const char* path, int maxParticles, int numSensors, int framePeriodMs)
     : f(nullptr), maxParticles_(maxParticles < 0 ? 0 : maxParticles), numSensors_(numSensors < 0 ? 0 : numSensors),
       sensorsWritten_(0), particlesWritten_(0), framesSinceFlush_(0), inFrame_(false) {
     f = fopen(path, "w");
@@ -14,6 +14,7 @@ telemetry::telemetry(const char* path, int maxParticles, int numSensors)
 
     fprintf(f, "MaxParticles,%d\n", maxParticles_);
     fprintf(f, "NumDistanceSensors,%d\n", numSensors_);
+    fprintf(f, "FramePeriodMs,%d\n", framePeriodMs);
     fputs("X,Y,Theta,NumParticles", f);
     for (int j = 0; j < numSensors_; j++) {
         fprintf(f, ",DistanceSensorReading%d,DistanceSensorOffset%d,DistanceSensorDirection%d", j, j, j);

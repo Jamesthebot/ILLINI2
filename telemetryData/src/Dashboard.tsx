@@ -2,10 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import DisplayField from './DisplayField';
 import ParticlePanel from './ParticlePanel';
 import HowToUse from './HowToUse';
-import { parseTelemetry, TelemetryFrame, TelemetryLog } from './parseTelemetry';
+import { DEFAULT_FRAME_PERIOD_MS, parseTelemetry, TelemetryFrame, TelemetryLog } from './parseTelemetry';
 
 const EMPTY_FRAME: TelemetryFrame = { x: 0, y: 0, theta: 0, sensors: [], particles: [] };
-const FRAME_PERIOD_MS = 100;
 const PLAYBACK_TICK_MS = 16;
 const DEFAULT_ROBOT_SIZE_IN = 18;
 
@@ -24,6 +23,8 @@ export default function Dashboard() {
     const closeHelp = useCallback(() => setShowHelp(false), []);
 
     const maxIndex = telemetryLog ? Math.max(telemetryLog.frames.length - 1, 0) : 0;
+    const framePeriodMs = telemetryLog?.framePeriodMs ?? DEFAULT_FRAME_PERIOD_MS;
+    const formatSeconds = (frame: number) => (frame * framePeriodMs / 1000).toFixed(framePeriodMs % 100 === 0 ? 1 : 2);
 
     const indexRef = useRef(index);
     indexRef.current = index;
@@ -34,12 +35,12 @@ export default function Dashboard() {
         const startIndex = indexRef.current;
         const startTime = performance.now();
         const timer = setInterval(() => {
-            const target = Math.min(startIndex + Math.floor((performance.now() - startTime) * playbackRate / FRAME_PERIOD_MS), maxIndex);
+            const target = Math.min(startIndex + Math.floor((performance.now() - startTime) * playbackRate / framePeriodMs), maxIndex);
             setIndex(target);
             if (target >= maxIndex) setPlaying(false);
         }, PLAYBACK_TICK_MS);
         return () => clearInterval(timer);
-    }, [playing, playbackRate, maxIndex, playStart]);
+    }, [playing, playbackRate, maxIndex, framePeriodMs, playStart]);
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -126,9 +127,8 @@ export default function Dashboard() {
                     <button onClick={() => step(-1)} disabled={index === 0}>
                         Back
                     </button>
-                    <span style={{ fontWeight: 'bold' }}>Frame Index: {index} / {maxIndex}</span>
-                    <span style={{ fontFamily: 'monospace' }}>
-                        {(index * FRAME_PERIOD_MS / 1000).toFixed(1)} s / {(maxIndex * FRAME_PERIOD_MS / 1000).toFixed(1)} s
+                    <span style={{ fontWeight: 'bold' }}>
+                        Frame Index: {index} / {maxIndex} | {formatSeconds(index)} s / {formatSeconds(maxIndex)} s
                     </span>
                     <button onClick={() => step(1)} disabled={index === maxIndex}>
                         Forward

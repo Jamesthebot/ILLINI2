@@ -13,6 +13,13 @@ foreach(header ${PROJECT_HEADERS})
     configure_file(${REPO_ROOT}/include/${header} ${HEADER_COPY_DIR}/${header} COPYONLY)
 endforeach()
 
+set(MCL_LOOP_MS "" CACHE STRING "Override MCL::LOOP_MS in the sim's copy of mcl.h (blank = use mcl.h)")
+if(MCL_LOOP_MS)
+    file(READ ${HEADER_COPY_DIR}/mcl.h MCL_HEADER)
+    string(REGEX REPLACE "LOOP_MS = [0-9]+" "LOOP_MS = ${MCL_LOOP_MS}" MCL_HEADER "${MCL_HEADER}")
+    file(WRITE ${HEADER_COPY_DIR}/mcl.h "${MCL_HEADER}")
+endif()
+
 add_executable(mcl_sim
     sim_main.cpp
     ${MCL_SOURCE}

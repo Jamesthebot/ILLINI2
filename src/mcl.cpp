@@ -71,8 +71,6 @@ constexpr double ALPHA_FAST = 0.2;
 constexpr double MAX_RANDOM_FRACTION = 0.1;
 constexpr double RECOVERY_RADIUS = 12.0;
 
-constexpr uint32_t LOOP_MS = 100;
-
 constexpr double PI = 3.14159265358979323846;
 constexpr double SQRT_2PI = 2.50662827463100050242;
 constexpr double NEG_INF = -std::numeric_limits<double>::infinity();

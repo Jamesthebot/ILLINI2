@@ -1,6 +1,7 @@
 export const READING_NONE = -1;
 export const READING_INVALID = -2;
 export const MAX_SENSOR_RANGE_IN = 78.74;
+export const DEFAULT_FRAME_PERIOD_MS = 100;
 
 export interface SensorFrame {
     reading: number;
@@ -28,6 +29,7 @@ export interface TelemetryFrame {
 export interface TelemetryLog {
     maxParticles: number;
     numSensors: number;
+    framePeriodMs: number;
     frames: TelemetryFrame[];
 }
 
@@ -53,6 +55,8 @@ export function parseTelemetry(csv: string): TelemetryLog {
     }
     const maxParticles = Math.max(0, metadata.get('maxparticles') ?? 0);
     const numSensors = Math.max(0, metadata.get('numdistancesensors') ?? 0);
+    const declaredPeriod = metadata.get('frameperiodms');
+    const framePeriodMs = declaredPeriod !== undefined && declaredPeriod > 0 ? declaredPeriod : DEFAULT_FRAME_PERIOD_MS;
 
     if (lineIndex >= lines.length) throw new Error('Missing CSV header');
     const header = lines[lineIndex++].split(',').map(name => name.trim().toLowerCase());
@@ -110,5 +114,5 @@ export function parseTelemetry(csv: string): TelemetryLog {
         frames.push({ x, y, theta, sensors, particles });
     }
 
-    return { maxParticles, numSensors, frames };
+    return { maxParticles, numSensors, framePeriodMs, frames };
 }

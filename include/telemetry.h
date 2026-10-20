@@ -13,7 +13,7 @@ class telemetry {
 
         void padSensors();
     public:
-        telemetry(const char* path, int maxParticles, int numSensors);
+        telemetry(const char* path, int maxParticles, int numSensors, int framePeriodMs);
         ~telemetry();
         bool isOpen() const { return f != nullptr; }
         int getMaxParticles() const { return maxParticles_; }

@@ -19,7 +19,7 @@ telemetry* telemetryLog = nullptr;
 
 void initialize() {
     // ...your existing setup...
-    static telemetry log("/usd/telemetry.csv", 300, 4);   // path, max particles, distance sensors
+    static telemetry log("/usd/telemetry.csv", 300, 4, 100);   // path, max particles, distance sensors, ms between frames
     telemetryLog = &log;
 }`;
 
@@ -38,12 +38,13 @@ for (each particle) {
 
 telemetryLog->endFrame();`;
 
-const MCL = `static telemetry mclLog("/usd/telemetry.csv", 300, 4);
+const MCL = `static telemetry mclLog("/usd/telemetry.csv", 300, 4, MCL::LOOP_MS);
 MCL::setTelemetry(&mclLog);
 MCL::init(300);`;
 
 const FORMAT = `MaxParticles,300
 NumDistanceSensors,4
+FramePeriodMs,100
 X,Y,Theta,NumParticles,DistanceSensorReading0,DistanceSensorOffset0,DistanceSensorDirection0,...,ParticlePosition0,ParticleWeight0,SimulatedDistance0_0,...
 12.31,-40.02,91.50,300,23.41,-1.00;1.75,0.00,...,12.20;-39.88;90.97,0.004127,23.10,...`;
 
@@ -77,8 +78,9 @@ export default function HowToUse({ onClose }: HowToUseProps) {
                 <p>
                     Create one <code>telemetry</code> object in <code>initialize()</code>. Make it <code>static</code> so it
                     isn't destroyed when <code>initialize()</code> returns, and keep a pointer to it for your loop. Creating it inside
-                    <code> initialize()</code>, rather than as a global, means the file is opened after PROS has started. The constructor opens the file and writes the two
-                    metadata lines and the column header. Running the program again overwrites the file.
+                    <code> initialize()</code>, rather than as a global, means the file is opened after PROS has started. The constructor opens the file and writes the three
+                    metadata lines and the column header. Pass the time between frames (your localization loop's period) as the
+                    last argument. Running the program again overwrites the file.
                 </p>
                 <pre style={code}>{SETUP}</pre>
 
@@ -110,7 +112,9 @@ export default function HowToUse({ onClose }: HowToUseProps) {
                 <h4>File format</h4>
                 <pre style={code}>{FORMAT}</pre>
                 <p>
-                    The first two lines tell the viewer how many particle and sensor columns to expect. Cells that hold more than one
+                    The first three lines tell the viewer how many particle and sensor columns to expect and how far apart frames
+                    are, which sets the time shown and the playback speed. Logs without <code>FramePeriodMs</code> are treated as
+                    100 ms per frame. Cells that hold more than one
                     number separate them with <code>;</code>: <code>DistanceSensorOffset</code> is <code>x;y</code> and
                     <code> ParticlePosition</code> is <code>x;y;theta</code>.
                 </p>

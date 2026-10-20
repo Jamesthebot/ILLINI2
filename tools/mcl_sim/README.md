@@ -12,6 +12,8 @@ tools/mcl_sim/build/Release/mcl_sim.exe tools/mcl_sim/out/sim.csv
 
 (On Windows this needs Visual Studio with the C++ workload; on Linux/macOS the exe is `build/mcl_sim`.)
 To build against a modified copy of MCL without touching `src/`, configure with `-DMCL_SOURCE=path/to/mcl.cpp`.
+To try a different MCL loop period (and so logging rate), configure a separate build folder with
+`-DMCL_LOOP_MS=50`. That changes `MCL::LOOP_MS` only in the sim's copy of `mcl.h`.
 
 ## What it simulates
 
