@@ -49,6 +49,7 @@ class fieldRepresentation {
         fieldRepresentation(vector<distanceSensor> sensors, vector<fieldObject> objects);
         distanceSensorDistances simulateCast(vector3 particlePos, double particleHeading);
         bool insideObstacle(double x, double y) const;
+        const vector<distanceSensor>& getSensors() const { return sensors_; }
         vector3 getMax(const fieldObject& object) { return object.max; }
         vector3 getMin(const fieldObject& object) { return object.min; }
 };

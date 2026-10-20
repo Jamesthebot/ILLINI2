@@ -4,6 +4,7 @@
 #include <vector>
 #include "utilities.hpp"
 #include "particle.h"
+#include "telemetry.h"
 
 using namespace std;
 
@@ -17,9 +18,11 @@ class MCL {
         static double effectiveParticleCount();
         static lemlib::Pose estimate(double imuHeading);
         static void step();
+        static void writeTelemetry();
     public:
         static void setSensorData(fieldRepresentation::distanceSensorDistances data) { sensorData_ = data; }
 
+        static void setTelemetry(telemetry* log);
         static void init(int numParticles);
         static void reset(lemlib::Pose pose);
         static void update(double forward, double right, double imuHeading); // robot-frame odometry change, inches

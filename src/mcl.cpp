@@ -116,6 +116,7 @@ int rejectedTicks = 0;
 bool weighedOnce = false;
 double moveSinceWeigh = 0, turnSinceWeigh = 0;
 lemlib::Pose estimatedPose(0, 0, 0);
+telemetry* telemetryLog = nullptr;
 
 bool finite(const lemlib::Pose& p) { return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.theta); }
 
@@ -149,6 +150,16 @@ double readInches(pros::Distance& sensor) {
 
 void warnIfMissing(pros::Distance& sensor, const char* name) {
     if (!sensor.is_installed()) printf("[MCL] %s distance sensor not detected on port %d\n", name, sensor.get_port());
+}
+
+double readingAt(const fieldRepresentation::distanceSensorDistances& d, size_t i) {
+    switch (i) {
+        case 0: return d.frontDistance;
+        case 1: return d.rightDistance;
+        case 2: return d.backDistance;
+        case 3: return d.leftDistance;
+    }
+    return READING_INVALID;
 }
 
 double sensorLogLikelihood(double simulated, double simulatedCos, double measured) {
@@ -233,6 +244,11 @@ void MCL::init(int numParticles) {
     }, "MCL");
 }
 
+void MCL::setTelemetry(telemetry* log) {
+    std::lock_guard<pros::Mutex> lock(mclMutex());
+    telemetryLog = log;
+}
+
 void MCL::reset(lemlib::Pose pose) {
     std::lock_guard<pros::Mutex> lock(mclMutex());
     angledOdom::setPose(pose.x, pose.y, pose.theta);
@@ -263,7 +279,7 @@ void MCL::step() {
     latestImu = imuNow;
 
     lemlib::Pose delta = pose - prevPose;
-    double th = toRad(prevPose.theta + delta.theta / 2.0); // midpoint heading
+    double th = toRad(prevPose.theta + (pose.theta - prevPose.theta) / 2.0); // midpoint heading
     double forward = delta.x * std::sin(th) + delta.y * std::cos(th);
     double right   = delta.x * std::cos(th) - delta.y * std::sin(th);
     moveSinceWeigh += std::hypot(forward, right);
@@ -282,7 +298,30 @@ void MCL::step() {
     lemlib::Pose correction = applyCorrection(estimatedPose);
     prevPose = lemlib::Pose(pose.x + correction.x, pose.y + correction.y, pose.theta + correction.theta);
 
+    writeTelemetry();
+
     if (effectiveParticleCount() < particles_.size() * RESAMPLE_ESS_FRACTION) resample();
+}
+
+void MCL::writeTelemetry() {
+    if (!telemetryLog || !telemetryLog->isOpen()) return;
+    fieldRepresentation& field = getField();
+    const auto& sensors = field.getSensors();
+    lemlib::Pose pose = angledOdom::getPose();
+
+    telemetryLog->beginFrame(pose.x, pose.y, pose.theta, particles_.size());
+    for (size_t i = 0; i < sensors.size(); i++) {
+        vector3 offset = sensors[i].getCenterOffset();
+        telemetryLog->writeSensor(readingAt(sensorData_, i), offset.x(), offset.y(), sensors[i].getDefaultAngle());
+    }
+    for (const auto& p : particles_) {
+        double heading = p.getHeading(latestImu);
+        fieldRepresentation::distanceSensorDistances sim = field.simulateCast(p.getPosition(), heading);
+        double simulated[4];
+        for (size_t i = 0; i < 4; i++) simulated[i] = readingAt(sim, i);
+        telemetryLog->writeParticle(p.getX(), p.getY(), heading, p.getWeight(), simulated, 4);
+    }
+    telemetryLog->endFrame();
 }
 
 void MCL::update(double forward, double right, double imuHeading) {

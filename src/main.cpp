@@ -2,6 +2,7 @@
 #include "robot.h"
 #include "mcl.h"
 #include "angled_odom.h"
+#include "telemetry.h"
 
 
 
@@ -10,6 +11,8 @@ void initialize() {
 	imu.reset(true);
 	angledOdom::configure(&back_left_encoder, &back_right_encoder, &imu, &chassis, 2.75, -1.5945, 1.5945);
 	angledOdom::start(0, 0, 0); // 48, 0 , 0
+	static telemetry mclLog("/usd/telemetry.csv", 300, 4);
+	MCL::setTelemetry(&mclLog);
 	//MCL::init(300);
 
 	pros::Task screenTask([] {
