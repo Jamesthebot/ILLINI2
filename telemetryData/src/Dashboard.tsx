@@ -7,7 +7,7 @@ import { DEFAULT_FRAME_PERIOD_MS, parseTelemetry, TelemetryFrame, TelemetryLog }
 const EMPTY_FRAME: TelemetryFrame = { x: 0, y: 0, theta: 0, sensors: [], particles: [] };
 const PLAYBACK_TICK_MS = 16;
 const DEFAULT_ROBOT_SIZE_IN = 18;
-const CONTENT_HEIGHT_PX = 845;
+const CONTENT_HEIGHT_PX = 800;
 
 export default function Dashboard() {
     const [telemetryLog, setTelemetryLog] = useState<TelemetryLog | null>(null);
@@ -126,20 +126,19 @@ export default function Dashboard() {
 
     return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif', zoom, ...theme }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 15px 0' }}>
-                <h3 style={{ margin: 0 }}>IVR MCL Debugger</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <h3 style={{ margin: 0 }}>IVR MCL Debugger</h3>
+                    <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileUpload}
+                    />
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                     <button onClick={() => setShowHelp(true)}>How to Use</button>
                     {checkbox('Dark mode', darkMode, setDarkMode)}
                 </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-                <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                />
             </div>
 
             {telemetryLog && (
