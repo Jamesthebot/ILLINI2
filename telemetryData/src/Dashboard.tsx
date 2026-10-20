@@ -127,6 +127,9 @@ export default function Dashboard() {
                         Back
                     </button>
                     <span style={{ fontWeight: 'bold' }}>Frame Index: {index} / {maxIndex}</span>
+                    <span style={{ fontFamily: 'monospace' }}>
+                        {(index * FRAME_PERIOD_MS / 1000).toFixed(1)} s / {(maxIndex * FRAME_PERIOD_MS / 1000).toFixed(1)} s
+                    </span>
                     <button onClick={() => step(1)} disabled={index === maxIndex}>
                         Forward
                     </button>
