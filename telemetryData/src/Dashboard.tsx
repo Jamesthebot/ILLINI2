@@ -7,6 +7,7 @@ import { DEFAULT_FRAME_PERIOD_MS, parseTelemetry, TelemetryFrame, TelemetryLog }
 const EMPTY_FRAME: TelemetryFrame = { x: 0, y: 0, theta: 0, sensors: [], particles: [] };
 const PLAYBACK_TICK_MS = 16;
 const DEFAULT_ROBOT_SIZE_IN = 18;
+const CONTENT_HEIGHT_PX = 845;
 
 export default function Dashboard() {
     const [telemetryLog, setTelemetryLog] = useState<TelemetryLog | null>(null);
@@ -16,6 +17,22 @@ export default function Dashboard() {
     const [showParticles, setShowParticles] = useState<boolean>(true);
     const [selectedParticle, setSelectedParticle] = useState<number | null>(null);
     const [showHelp, setShowHelp] = useState<boolean>(false);
+    const [darkMode, setDarkMode] = useState<boolean>(false);
+    const [zoom, setZoom] = useState<number>(() => window.innerHeight / CONTENT_HEIGHT_PX);
+
+    useEffect(() => {
+        const onResize = () => setZoom(window.innerHeight / CONTENT_HEIGHT_PX);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+    const theme: React.CSSProperties = darkMode
+        ? { background: '#000000', color: '#ffffff', colorScheme: 'dark' }
+        : { background: '#ffffff', color: '#000000', colorScheme: 'light' };
+
+    useEffect(() => {
+        document.body.style.margin = '0';
+        document.body.style.background = darkMode ? '#000000' : '#ffffff';
+    }, [darkMode]);
     const [robotWidth, setRobotWidth] = useState<number>(DEFAULT_ROBOT_SIZE_IN);
     const [robotLength, setRobotLength] = useState<number>(DEFAULT_ROBOT_SIZE_IN);
     const [playing, setPlaying] = useState<boolean>(false);
@@ -108,10 +125,13 @@ export default function Dashboard() {
     );
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 15px 0' }}>
+        <div style={{ padding: '20px', fontFamily: 'sans-serif', zoom, ...theme }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 15px 0' }}>
                 <h3 style={{ margin: 0 }}>IVR MCL Debugger</h3>
-                <button onClick={() => setShowHelp(true)}>How to Use</button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                    <button onClick={() => setShowHelp(true)}>How to Use</button>
+                    {checkbox('Dark mode', darkMode, setDarkMode)}
+                </div>
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -171,7 +191,7 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {showHelp && <HowToUse onClose={closeHelp} />}
+            {showHelp && <HowToUse onClose={closeHelp} theme={theme} />}
         </div>
     );
 }

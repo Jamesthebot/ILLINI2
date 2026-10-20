@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 
 export interface HowToUseProps {
     onClose: () => void;
+    theme: React.CSSProperties;
 }
 
 const code: React.CSSProperties = {
@@ -48,7 +49,7 @@ FramePeriodMs,100
 X,Y,Theta,NumParticles,DistanceSensorReading0,DistanceSensorOffset0,DistanceSensorDirection0,...,ParticlePosition0,ParticleWeight0,SimulatedDistance0_0,...
 12.31,-40.02,91.50,300,23.41,-1.00;1.75,0.00,...,12.20;-39.88;90.97,0.004127,23.10,...`;
 
-export default function HowToUse({ onClose }: HowToUseProps) {
+export default function HowToUse({ onClose, theme }: HowToUseProps) {
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
         window.addEventListener('keydown', onKey);
@@ -61,7 +62,7 @@ export default function HowToUse({ onClose }: HowToUseProps) {
             display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '40px 16px', overflowY: 'auto', zIndex: 10,
         }}>
             <div onClick={(event) => event.stopPropagation()} style={{
-                background: '#ffffff', color: '#212121', padding: '24px', maxWidth: '760px', width: '100%',
+                ...theme, border: '1px solid #888888', padding: '24px', maxWidth: '760px', width: '100%',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0 }}>How to use</h3>
