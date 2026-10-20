@@ -150,7 +150,11 @@ export default function Dashboard() {
                 />
             </div>
 
-            <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+            <div style={{
+                position: 'fixed', top: '20px', right: '20px', zIndex: 5, padding: '8px',
+                background: darkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px',
+            }}>
                 <button onClick={() => setShowHelp(true)}>How to Use</button>
                 <button
                     onClick={() => window.open(REPO_URL, '_blank', 'noopener')}
