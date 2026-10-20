@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import Modal from './Modal';
 
 export interface HowToUseProps {
     onClose: () => void;
     theme: React.CSSProperties;
 }
 
-const code: React.CSSProperties = {
+export const code: React.CSSProperties = {
     background: '#1e1e1e',
     color: '#e0e0e0',
     padding: '12px',
@@ -50,24 +51,8 @@ X,Y,Theta,NumParticles,DistanceSensorReading0,DistanceSensorOffset0,DistanceSens
 12.31,-40.02,91.50,300,23.41,-1.00;1.75,0.00,...,12.20;-39.88;90.97,0.004127,23.10,...`;
 
 export default function HowToUse({ onClose, theme }: HowToUseProps) {
-    useEffect(() => {
-        const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
-
     return (
-        <div onClick={onClose} style={{
-            position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '40px 16px', overflowY: 'auto', zIndex: 10,
-        }}>
-            <div onClick={(event) => event.stopPropagation()} style={{
-                ...theme, border: '1px solid #888888', padding: '24px', maxWidth: '760px', width: '100%',
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0 }}>How to use</h3>
-                    <button onClick={onClose}>Close</button>
-                </div>
+        <Modal title="How to use" onClose={onClose} theme={theme}>
 
                 <h4>1. Add the logger to your robot project</h4>
                 <p>
@@ -119,7 +104,6 @@ export default function HowToUse({ onClose, theme }: HowToUseProps) {
                     number separate them with <code>;</code>: <code>DistanceSensorOffset</code> is <code>x;y</code> and
                     <code> ParticlePosition</code> is <code>x;y;theta</code>.
                 </p>
-            </div>
-        </div>
+        </Modal>
     );
 }

@@ -116,6 +116,10 @@ can't keep up. Each frame draws, on a top-down 144" x 144" field:
 Checkboxes toggle the robot, sensors and particles. **How to Use** (top right) explains how to add the
 logger to other robot code.
 
+**Download test CSV** downloads a sample run from the simulator and opens a short explanation of the run
+and how to generate your own. The file served is `telemetryData/public/sim_fixed_heading.csv`. After
+regenerating `tools/mcl_sim/out/sim_fixed_heading.csv`, copy it over that file to update the download.
+
 ### Logging
 
 `telemetry` (`include/telemetry.h`, `src/telemetry.cpp`) writes the CSV. `initialize()` creates
