@@ -9,7 +9,7 @@
 void initialize() {
     pros::lcd::initialize();
 	imu.reset(true);
-	angledOdom::configure(&back_left_encoder, &back_right_encoder, &imu, &chassis, 2.75, -1.5945, 1.5945);
+	angledOdom::configure(&back_left_encoder, &back_right_encoder, &imu, &chassis, 2, -1.5945, 1.5945);
 	angledOdom::start(0, 0, 0); // 48, 0 , 0
 	static telemetry mclLog("/usd/telemetry.csv", 300, 4, MCL::LOOP_MS);
 	MCL::setTelemetry(&mclLog);
@@ -34,9 +34,16 @@ void disabled() {}
 void competition_initialize() {}
 
 void autonomous() {
-	chassis.setPose(0,0,0);
-	pros::delay(100);
-	chassis.turnToHeading(180, 10000);
+	chassis.setPose(0,0,0); // -24 -24 0 
+	pros::delay(500);
+	chassis.moveToPose(0, 48, 0, 2000);
+	// chassis.turnToHeading(90, 2000);
+	// chassis.moveToPose(24, 24, 90, 2000);
+	// chassis.turnToHeading(180, 2000);
+	// chassis.moveToPose(24, -24, 180, 2000);
+	// chassis.turnToHeading(270, 2000);
+	// chassis.moveToPose(-24, -24, 270, 2000);
+	// chassis.turnToHeading(0, 2000);
 } 
 
 void opcontrol() { 
