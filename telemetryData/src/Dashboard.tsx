@@ -120,6 +120,13 @@ export default function Dashboard() {
     };
 
     const currentFrame = telemetryLog?.frames[index] ?? EMPTY_FRAME;
+    let sumW = 0, sumW2 = 0;
+    for (const p of currentFrame.particles) {
+        if (!isFinite(p.weight)) continue;
+        sumW += p.weight;
+        sumW2 += p.weight * p.weight;
+    }
+    const effectiveParticleCount = sumW2 > 0 ? sumW * sumW / sumW2 : 0;
     const particle = selectedParticle !== null && showParticles ? currentFrame.particles[selectedParticle] : undefined;
 
     const pageBreak: React.CSSProperties = { width: '100px', margin: '15px auto' };
@@ -169,25 +176,6 @@ export default function Dashboard() {
                 <span>{fileName ?? 'No file chosen'}</span>
             </div>
 
-            {telemetryLog && (
-                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <button onClick={() => step(-1)} disabled={index === 0}>
-                        Back
-                    </button>
-                    <span style={{ fontWeight: 'bold' }}>
-                        Frame Index: {index} / {maxIndex} | {formatSeconds(index)} s / {formatSeconds(maxIndex)} s
-                    </span>
-                    <button onClick={() => step(1)} disabled={index === maxIndex}>
-                        Forward
-                    </button>
-                    <button onClick={play} disabled={playing}>Play</button>
-                    <button onClick={() => setPlaying(false)} disabled={!playing}>Pause</button>
-                    <button onClick={restart}>Restart</button>
-                    {numberField('Playback rate', playbackRate, setPlaybackRate, 0.1, 0.1, '×')}
-                    <span style={{ marginLeft: '10px' }}>Particles: {currentFrame.particles.length}</span>
-                </div>
-            )}
-
             <hr style={pageBreak} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <div style={rowStyle}>
@@ -204,6 +192,36 @@ export default function Dashboard() {
                 </div>
             </div>
             <hr style={pageBreak} />
+
+            {telemetryLog && (
+                <>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ ...rowStyle, alignItems: 'center', gap: '10px' }}>
+                            <button onClick={() => step(-1)} disabled={index === 0}>
+                                Back
+                            </button>
+                            <span style={{ fontWeight: 'bold' }}>
+                                Frame Index: {index} / {maxIndex} | {formatSeconds(index)} s / {formatSeconds(maxIndex)} s
+                            </span>
+                            <button onClick={() => step(1)} disabled={index === maxIndex}>
+                                Forward
+                            </button>
+                        </div>
+                        <div style={{ ...rowStyle, gap: '10px' }}>
+                            <button onClick={play} disabled={playing}>Play</button>
+                            <button onClick={() => setPlaying(false)} disabled={!playing}>Pause</button>
+                            <button onClick={restart}>Restart</button>
+                        </div>
+                        <div style={rowStyle}>
+                            {numberField('Playback rate', playbackRate, setPlaybackRate, 0.1, 0.1, '×')}
+                        </div>
+                        <div style={rowStyle}>
+                            <span>Effective particles: {effectiveParticleCount.toFixed(1)} / {currentFrame.particles.length}</span>
+                        </div>
+                    </div>
+                    <hr style={pageBreak} />
+                </>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: '20px' }}>
                 <DisplayField
