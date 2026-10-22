@@ -20,7 +20,7 @@ export default function Modal({ title, onClose, theme, children }: ModalProps) {
             display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '40px 16px', overflowY: 'auto', zIndex: 10,
         }}>
             <div onClick={(event) => event.stopPropagation()} style={{
-                ...theme, border: '1px solid #888888', padding: '24px', maxWidth: '760px', width: '100%',
+                ...theme, border: '1px solid #888888', padding: '24px', maxWidth: '760px', width: '100%', textAlign: 'left',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0 }}>{title}</h3>
