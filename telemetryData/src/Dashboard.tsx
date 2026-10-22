@@ -17,6 +17,7 @@ const COLUMN_WIDTH_PX = 1000;
 const SIDE_COLOR_LIGHT = '#eeeeee';
 const SIDE_COLOR_DARK = '#0d0d0d';
 const THEME_TRANSITION = 'background-color 0.3s ease, color 0.3s ease';
+const fitZoom = () => Math.min(window.innerHeight / CONTENT_HEIGHT_PX, window.innerWidth / COLUMN_WIDTH_PX);
 
 export default function Dashboard() {
     const [telemetryLog, setTelemetryLog] = useState<TelemetryLog | null>(null);
@@ -36,10 +37,10 @@ export default function Dashboard() {
         setShowSampleInfo(true);
     };
     const [darkMode, setDarkMode] = useState<boolean>(false);
-    const [zoom, setZoom] = useState<number>(() => window.innerHeight / CONTENT_HEIGHT_PX);
+    const [zoom, setZoom] = useState<number>(() => fitZoom());
 
     useEffect(() => {
-        const onResize = () => setZoom(window.innerHeight / CONTENT_HEIGHT_PX);
+        const onResize = () => setZoom(fitZoom());
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
