@@ -33,20 +33,53 @@ void disabled() {}
 
 void competition_initialize() {}
 
+// Average actual velocity (rpm) across every motor in the group
+static double avgVelocity(const pros::MotorGroup& mg) {
+	std::vector<double> v = mg.get_actual_velocity_all();
+	double sum = 0;
+	for (double rpm : v) sum += rpm;
+	return v.empty() ? 0 : sum / v.size();
+}
+
 void autonomous() {
+	// Brake instead of coasting when LemLib sets the motors to 0
+	left_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_BRAKE);
+	right_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_BRAKE);
+
 	chassis.setPose(0,0,0); // -24 -24 0 
 	pros::delay(500);
 	chassis.moveToPose(0, 48, 0, 2000);
-	// chassis.turnToHeading(90, 2000);
+	chassis.turnToHeading(180, 2000);
 	// chassis.moveToPose(24, 24, 90, 2000);
-	// chassis.turnToHeading(180, 2000);
+	// chassis.turnToHeading(180, 2000);	
 	// chassis.moveToPose(24, -24, 180, 2000);
 	// chassis.turnToHeading(270, 2000);
 	// chassis.moveToPose(-24, -24, 270, 2000);
 	// chassis.turnToHeading(0, 2000);
+
+	// Target setpoint (the destination we want, e.g., 24 inches)
+	const double setpoint = 48.0;
+	// Keep logging for 1.5s after the motion ends so any slide shows up on the plot
+	uint32_t settleEnd = 0;
+	while (chassis.isInMotion() || pros::millis() < settleEnd) {
+		if (!chassis.isInMotion() && settleEnd == 0) settleEnd = pros::millis() + 1500;
+
+		lemlib::Pose pose = chassis.getPose();
+		double error = setpoint - pose.y;
+
+		// Print the data strictly formatted for the serial plotter
+		// This MUST be on a single line ending with \n
+		printf("Setpoint:%.2f,Y:%.2f,Error:%.2f,X:%.2f,Theta:%.2f,LeftRPM:%.1f,RightRPM:%.1f\n",
+		       setpoint, pose.y, error, pose.x, pose.theta, avgVelocity(left_mg), avgVelocity(right_mg));
+
+		// 50ms so the controller's wireless link can keep up (10ms matches LemLib's loop if tethered over USB)
+		pros::delay(50);
+	}
 } 
 
 void opcontrol() { 
+	left_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
+	right_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
 	while (true) {
 		int dir = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 		int turn = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
