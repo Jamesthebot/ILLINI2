@@ -4,8 +4,6 @@
 #include "angled_odom.h"
 #include "telemetry.h"
 
-
-
 void initialize() {
     pros::lcd::initialize();
 	imu.reset(true);
@@ -14,6 +12,8 @@ void initialize() {
 	static telemetry mclLog("/usd/telemetry.csv", 300, 4, MCL::LOOP_MS);
 	MCL::setTelemetry(&mclLog);
 	//MCL::init(300);
+
+	autonomous();
 
 	pros::Task screenTask([] {
 		while (true) {
@@ -48,14 +48,8 @@ void autonomous() {
 
 	chassis.setPose(0,0,0); // -24 -24 0 
 	pros::delay(500);
-	chassis.moveToPose(0, 48, 0, 2000);
-	chassis.turnToHeading(180, 2000);
-	// chassis.moveToPose(24, 24, 90, 2000);
-	// chassis.turnToHeading(180, 2000);	
-	// chassis.moveToPose(24, -24, 180, 2000);
-	// chassis.turnToHeading(270, 2000);
-	// chassis.moveToPose(-24, -24, 270, 2000);
-	// chassis.turnToHeading(0, 2000);
+	// chassis.moveToPose(0, 48, 0, 2000);
+	chassis.turnToHeading(180, 3000);
 
 	// Target setpoint (the destination we want, e.g., 24 inches)
 	const double setpoint = 48.0;
