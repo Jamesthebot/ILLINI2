@@ -2,6 +2,7 @@
 
 #include "api.h"
 #include "lemlib/api.hpp"
+#include <algorithm>
 #include <cmath>
 using namespace pros;
 
@@ -17,26 +18,40 @@ class Cascade {
          * @param numStages number of stages in the cascade
          */
         Cascade(std::int8_t motorPort1, std::int8_t motorPort2, std::int8_t rotationPort, double pulleyDiameter, int numStages)
-            : cascadeMotors({motorPort1, motorPort2}), rotationSensor(rotationPort), spoolDiameter(pulleyDiameter), stages(numStages), cascadePID(kP, kI, kD, antiWindup, signFlipReset) {
-            cascadeMotors.set_brake_mode(MotorBrake::hold);
+            : cascadeMotors({motorPort1, motorPort2}), rotationSensor(rotationPort), spoolDiameter(pulleyDiameter), stages(numStages), cascadePID(kP, kI, kD, antiWindup, signFlipReset) {};
+
+        /**
+         * Sets the motors to hold and makes the current position height 0. Call once in initialize()
+         */
+        void init() {
+            cascadeMotors.set_brake_mode_all(MotorBrake::hold);
+            resetHeight();
         };
 
         /**
-         * Moves the cascade @ speed until called again (move(0) to stop). Ignored while SetHeight is running
+         * Moves the cascade @ speed until called again (move(0) to stop and hold). Ignored while SetHeight is running.
+         * Upward movement stops at MAX_HEIGHT, but only when this is called, so keep calling it while moving
          *
-         * @param speed -127 to 127
+         * @param speed -127 to 127, positive is up
          */
         void move(int speed) {
             if (heightMoveRunning) {
                 return;
             }
+
+            bool atMaxHeight = rotationSensor.get_position() / 100.0 >= targetHeight2Deg(MAX_HEIGHT);
+            if (speed == 0 || (speed > 0 && atMaxHeight)) {
+                cascadeMotors.brake();
+                return;
+            }
+
             cascadeMotors.move(speed);
         };
 
         /**
          * Starts task to move the cascade to a height and prevents other cascade operations while the cascade is being moved
          *
-         * @param inches target height in inches
+         * @param inches target height in inches, limited to 0 to MAX_HEIGHT
          * @param timeoutMs stops trying after this many milliseconds
          */
         void SetHeight(double inches, uint32_t timeoutMs = 3000);
@@ -53,6 +68,8 @@ class Cascade {
 
     private:
         double targetHeight2Deg(double inches);
+
+        static constexpr double MAX_HEIGHT = 50.0; // inches
 
         float kP = 1.0;
         float kI = 0.0;
