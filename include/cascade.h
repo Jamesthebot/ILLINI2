@@ -36,6 +36,11 @@ class Cascade {
          */
         void SetHeight(double inches, uint32_t timeoutMs = 3000);
 
+        /**
+         * Makes the current position height 0
+         */
+        void resetHeight() { rotationSensor.reset_position(); };
+
     private:
         double targetHeight2Deg(double inches);
 
