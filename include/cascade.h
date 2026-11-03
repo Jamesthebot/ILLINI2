@@ -10,8 +10,8 @@ class Cascade {
         /**
          * Constructor
          *
-         * @param motorPort1 first cascade motor port 
-         * @param motorPort2 second cascade motor port 
+         * @param motorPort1 first cascade motor port
+         * @param motorPort2 second cascade motor port
          * @param rotationPort rotation sensor port
          * @param pulleyDiameter diameter of pulley in inches
          * @param numStages number of stages in the cascade
@@ -22,14 +22,19 @@ class Cascade {
         };
 
         /**
-         * Moves the cascade @ speed until called again (move(0) to stop)
+         * Moves the cascade @ speed until called again (move(0) to stop). Ignored while SetHeight is running
          *
          * @param speed -127 to 127
          */
-        void move(int speed) { cascadeMotors.move(speed); };
+        void move(int speed) {
+            if (heightMoveRunning) {
+                return;
+            }
+            cascadeMotors.move(speed);
+        };
 
         /**
-         * Moves the cascade to a height
+         * Starts task to move the cascade to a height and prevents other cascade operations while the cascade is being moved
          *
          * @param inches target height in inches
          * @param timeoutMs stops trying after this many milliseconds
@@ -39,7 +44,12 @@ class Cascade {
         /**
          * Makes the current position height 0
          */
-        void resetHeight() { rotationSensor.reset_position(); };
+        void resetHeight() {
+            if (heightMoveRunning) {
+                return;
+            }
+            rotationSensor.reset_position();
+        };
 
     private:
         double targetHeight2Deg(double inches);
@@ -55,4 +65,6 @@ class Cascade {
         double spoolDiameter;
         int stages;
         lemlib::PID cascadePID;
+
+        bool heightMoveRunning = false;
 };
