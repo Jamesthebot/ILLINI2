@@ -1,6 +1,7 @@
 #pragma once
 
 #include "api.h"
+#include "lemlib/api.hpp"
 #include <cmath>
 using namespace pros;
 
@@ -16,7 +17,7 @@ class Cascade {
          * @param numStages number of stages in the cascade
          */
         Cascade(std::int8_t motorPort1, std::int8_t motorPort2, std::int8_t rotationPort, double pulleyDiameter, int numStages)
-            : cascadeMotors({motorPort1, motorPort2}), rotationSensor(rotationPort), spoolDiameter(pulleyDiameter), stages(numStages) {
+            : cascadeMotors({motorPort1, motorPort2}), rotationSensor(rotationPort), spoolDiameter(pulleyDiameter), stages(numStages), cascadePID(kP, kI, kD, antiWindup, signFlipReset) {
             cascadeMotors.set_brake_mode(MotorBrake::hold);
         };
 
@@ -31,13 +32,22 @@ class Cascade {
          * Moves the cascade to a height
          *
          * @param inches target height in inches
+         * @param timeoutMs stops trying after this many milliseconds
          */
-        void SetHeight(double inches);
+        void SetHeight(double inches, uint32_t timeoutMs = 3000);
 
     private:
         double targetHeight2Deg(double inches);
+
+        float kP = 1.0;
+        float kI = 0.0;
+        float kD = 0.0;
+        float antiWindup = 0.0;
+        bool signFlipReset = false;
+
         MotorGroup cascadeMotors;
         Rotation rotationSensor;
         double spoolDiameter;
         int stages;
+        lemlib::PID cascadePID;
 };
