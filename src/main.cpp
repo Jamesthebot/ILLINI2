@@ -7,6 +7,7 @@
 void initialize() {
     pros::lcd::initialize();
 	imu.reset(true);
+	cascade.init();
 	angledOdom::configure(&back_left_encoder, &back_right_encoder, &imu, &chassis, 2, -1.5945, 1.5945);
 	angledOdom::start(48, 0, 0);
 	static telemetry mclLog("/usd/telemetry.csv", 300, 4, MCL::LOOP_MS);
