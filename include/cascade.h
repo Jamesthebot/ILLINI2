@@ -40,7 +40,8 @@ class Cascade {
             }
 
             bool atMaxHeight = rotationSensor.get_position() / 100.0 >= targetHeight2Deg(MAX_HEIGHT);
-            if (speed == 0 || (speed > 0 && atMaxHeight)) {
+            bool atMinHeight = rotationSensor.get_position() / 100.0 <= targetHeight2Deg(MIN_HEIGHT);
+            if (speed == 0 || (speed > 0 && atMaxHeight) || (speed < 0 && atMinHeight)) {
                 cascadeMotors.brake();
                 return;
             }
@@ -56,6 +57,12 @@ class Cascade {
          */
         void SetHeight(double inches, uint32_t timeoutMs = 3000);
 
+        void raiseToMin() {
+            if (rotationSensor.get_position() / 100.0 < targetHeight2Deg(MIN_HEIGHT)) {
+                SetHeight(MIN_HEIGHT);
+            }
+        }
+
         /**
          * Makes the current position height 0
          */
@@ -65,13 +72,16 @@ class Cascade {
             }
             rotationSensor.reset_position();
         };
+        double getDeg() { return rotationSensor.get_position() / 100.0; };
+        double getHeight() { return getDeg() / 360.0 * M_PI * spoolDiameter * stages; };
 
     private:
         double targetHeight2Deg(double inches);
 
         static constexpr double MAX_HEIGHT = 50.0; // inches
+        static constexpr double MIN_HEIGHT = 2.0; //inches
 
-        float kP = 1.0;
+        float kP = 1.5; //24inches
         float kI = 0.0;
         float kD = 0.0;
         float antiWindup = 0.0;

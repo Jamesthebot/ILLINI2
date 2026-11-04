@@ -22,7 +22,10 @@ void initialize() {
 			pros::lcd::print(1, "X: %.2f", pose.x);
 			pros::lcd::print(2, "Y: %.2f", pose.y);
 			pros::lcd::print(3, "Theta: %.2f", pose.theta);
+			pros::lcd::print(5, "Casc deg: %.1f", cascade.getDeg());
+			pros::lcd::print(6, "Casc in: %.2f", cascade.getHeight());
 			pros::delay(50);
+			
 		}
 	}, "screen");
 

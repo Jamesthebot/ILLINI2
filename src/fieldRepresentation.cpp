@@ -19,32 +19,32 @@ fieldRepresentation::fieldRepresentation(vector<distanceSensor> sensors, vector<
 vector<fieldRepresentation::fieldObject> fieldRepresentation::fieldObjects() {
     vector<fieldObject> objects;
 
-    objects.push_back(fieldObject{"wall", vector3(-fieldHalfWidth, -fieldHalfWidth, -0.622), vector3(fieldHalfWidth, fieldHalfWidth, 11.5368), true});
+    objects.push_back(fieldObject{"wall", vector3(-fieldHalfWidth - 2, -fieldHalfWidth - 2, -0.622), vector3(fieldHalfWidth - 2, fieldHalfWidth - 2, 11.5368), true});
 
-    objects.push_back(fieldObject{"loader", vector3(66.4645, 56.346, 3.248), vector3(70.1968, 61.1804, 14.3701)}); // Blue loader tube
-    objects.push_back(fieldObject{"loader", vector3(-70.1968, -61.1804, 3.5573), vector3(-66.4645, -56.346, 14.6793)}); // Red loader tube
-    objects.push_back(fieldObject{"loader", vector3(66.4645, -61.1804, 3.248), vector3(70.1968, -56.346, 14.3701)}); // Blue loader tube
-    objects.push_back(fieldObject{"loader", vector3(-70.1968, 56.346, 3.5573), vector3(-66.4645, 61.1804, 14.6793)}); // Red loader tube
+    // objects.push_back(fieldObject{"loader", vector3(66.4645, 56.346, 3.248), vector3(70.1968, 61.1804, 14.3701)}); // Blue loader tube
+    // objects.push_back(fieldObject{"loader", vector3(-70.1968, -61.1804, 3.5573), vector3(-66.4645, -56.346, 14.6793)}); // Red loader tube
+    // objects.push_back(fieldObject{"loader", vector3(66.4645, -61.1804, 3.248), vector3(70.1968, -56.346, 14.3701)}); // Blue loader tube
+    // objects.push_back(fieldObject{"loader", vector3(-70.1968, 56.346, 3.5573), vector3(-66.4645, 61.1804, 14.6793)}); // Red loader tube
 
-    objects.push_back(fieldObject{"goal", vector3(-49.8988, 20.738, 0), vector3(-44.2836, 26.3532, 5.769)}); // Neutral Goal 1
-    objects.push_back(fieldObject{"goal", vector3(-26.3532, 44.2836, 0), vector3(-20.738, 49.8988, 5.769)}); // Neutral Goal 4
-    objects.push_back(fieldObject{"goal", vector3(44.2856, 20.74, 0), vector3(49.8968, 26.3512, 3.2493)}); // Blue 2
-    objects.push_back(fieldObject{"goal", vector3(-49.8968, -26.3512, 0), vector3(-44.2856, -20.74, 3.2493)}); // Red 2
-    objects.push_back(fieldObject{"goal", vector3(20.74, 44.2856, 0), vector3(26.3512, 49.8968, 3.2493)}); // Blue 3
-    objects.push_back(fieldObject{"goal", vector3(-2.8076, -2.8076, 0), vector3(2.8076, 2.8076, 8.769)}); // Neutral Goal 0
-    objects.push_back(fieldObject{"goal", vector3(-26.3512, -49.8968, 0), vector3(-20.74, -44.2856, 3.2493)}); // Red 3
-    objects.push_back(fieldObject{"goal", vector3(20.738, -49.8988, 0), vector3(26.3532, -44.2836, 5.769)}); // Neutral Goal 4
-    objects.push_back(fieldObject{"goal", vector3(44.2836, -26.3532, 0), vector3(49.8988, -20.738, 5.769)}); // Neutral Goal 1
+    // objects.push_back(fieldObject{"goal", vector3(-49.8988, 20.738, 0), vector3(-44.2836, 26.3532, 5.769)}); // Neutral Goal 1
+    // objects.push_back(fieldObject{"goal", vector3(-26.3532, 44.2836, 0), vector3(-20.738, 49.8988, 5.769)}); // Neutral Goal 4
+    // objects.push_back(fieldObject{"goal", vector3(44.2856, 20.74, 0), vector3(49.8968, 26.3512, 3.2493)}); // Blue 2
+    // objects.push_back(fieldObject{"goal", vector3(-49.8968, -26.3512, 0), vector3(-44.2856, -20.74, 3.2493)}); // Red 2
+    // objects.push_back(fieldObject{"goal", vector3(20.74, 44.2856, 0), vector3(26.3512, 49.8968, 3.2493)}); // Blue 3
+    // objects.push_back(fieldObject{"goal", vector3(-2.8076, -2.8076, 0), vector3(2.8076, 2.8076, 8.769)}); // Neutral Goal 0
+    // objects.push_back(fieldObject{"goal", vector3(-26.3512, -49.8968, 0), vector3(-20.74, -44.2856, 3.2493)}); // Red 3
+    // objects.push_back(fieldObject{"goal", vector3(20.738, -49.8988, 0), vector3(26.3532, -44.2836, 5.769)}); // Neutral Goal 4
+    // objects.push_back(fieldObject{"goal", vector3(44.2836, -26.3532, 0), vector3(49.8988, -20.738, 5.769)}); // Neutral Goal 1
 
     return objects;
 }
 
 vector<distanceSensor> fieldRepresentation::distanceSensors() {
     vector<distanceSensor> sensors;
-    sensors.push_back(distanceSensor(0, vector3(-1, 1.75, 3), distanceFront));
-    sensors.push_back(distanceSensor(90, vector3(9.75, 0, 3), distanceRight));
-    sensors.push_back(distanceSensor(180, vector3(-1, -1.75, 3), distanceBack));
-    sensors.push_back(distanceSensor(270, vector3(-10, 0, 3), distanceLeft));
+    sensors.push_back(distanceSensor(0, vector3(-5.523, 5.131, 5.11), distanceFront));
+    sensors.push_back(distanceSensor(90, vector3(7.529, 2.537, 7.235), distanceRight));
+    sensors.push_back(distanceSensor(180, vector3(-5.523, -5.226, 4.86), distanceBack));
+    sensors.push_back(distanceSensor(270, vector3(-7.029, 2.669, 6.122), distanceLeft));
 
     return sensors;
 }

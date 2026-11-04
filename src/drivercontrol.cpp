@@ -22,6 +22,7 @@ struct DriverProfile {
     Button actuatorToggle;
     int intakeSpeed;
     int cascadeSpeed;
+    int cascadeDownSpeed;
 };
 
 static const DriverProfile profiles[] = {
@@ -41,6 +42,7 @@ static const DriverProfile profiles[] = {
         .actuatorToggle = pros::E_CONTROLLER_DIGITAL_X,
         .intakeSpeed = 127,
         .cascadeSpeed = 127,
+        .cascadeDownSpeed = 50,
     },
     {
         .name = "Tank",
@@ -58,6 +60,7 @@ static const DriverProfile profiles[] = {
         .actuatorToggle = pros::E_CONTROLLER_DIGITAL_DOWN,
         .intakeSpeed = 127,
         .cascadeSpeed = 100,
+        .cascadeDownSpeed = 50,
     },
 };
 
@@ -69,8 +72,8 @@ static void drive(const DriverProfile& p) {
         right_mg.move(master.get_analog(p.tankRight));
         return;
     }
-    int dir = master.get_analog(p.throttle);
-    int turn = master.get_analog(p.turn);
+    int dir = (-1)*master.get_analog(p.throttle);
+    int turn = (-1)*master.get_analog(p.turn);
     left_mg.move(dir - turn);
     right_mg.move(dir + turn);
 }
@@ -83,7 +86,7 @@ static void runIntake(const DriverProfile& p) {
 
 static void runCascade(const DriverProfile& p) {
     if (master.get_digital(p.cascadeUp)) cascade.move(p.cascadeSpeed);
-    else if (master.get_digital(p.cascadeDown)) cascade.move(-p.cascadeSpeed);
+    else if (master.get_digital(p.cascadeDown)) cascade.move(-p.cascadeDownSpeed);
     else cascade.move(0);
 }
 
@@ -97,6 +100,12 @@ void opcontrol() {
     left_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
     right_mg.set_brake_mode_all(pros::E_MOTOR_BRAKE_COAST);
     master.set_text(0, 0, profiles[activeProfile].name);
+
+    //cascade.raiseToMin(); change MIN_HEIGHT in cascade.h
+    //pros::delay(3000);
+    //cascade.SetHeight(20); 
+    //chassis.setPose(-48,0,0);
+    
     while (true) {
         const DriverProfile& p = profiles[activeProfile];
         drive(p);

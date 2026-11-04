@@ -7,7 +7,7 @@ void Cascade::SetHeight(double targetHeight, uint32_t timeoutMs) {
     heightMoveRunning = true;
 
     pros::Task heightTask([this, targetHeight, timeoutMs] {
-        const double target = targetHeight2Deg(std::clamp(targetHeight, 0.0, MAX_HEIGHT));
+        const double target = targetHeight2Deg(std::clamp(targetHeight, MIN_HEIGHT, MAX_HEIGHT));
         const double toleranceDeg = targetHeight2Deg(0.15);
         const uint32_t start = pros::millis();
         cascadePID.reset();
