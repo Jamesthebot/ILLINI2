@@ -55,7 +55,7 @@ static bool changedExternally(const lemlib::Pose& current) {
 
 void configure(pros::adi::Encoder* enc1, pros::adi::Encoder* enc2,
                pros::IMU* imu, lemlib::Chassis* chassis,
-               float wheelDiameter, float enc1Offset, float enc2Offset,
+               float wheelDiameter, float enc1X, float enc1Y, float enc2X, float enc2Y,
                float enc1Scale, float enc2Scale,
                float ticksPerRotation) {
     s_enc1 = enc1;
@@ -63,8 +63,10 @@ void configure(pros::adi::Encoder* enc1, pros::adi::Encoder* enc2,
     s_imu = imu;
     s_chassis = chassis;
     s_inchesPerTick = (wheelDiameter * M_PI) / ticksPerRotation;
-    s_enc1Offset = enc1Offset;
-    s_enc2Offset = enc2Offset;
+    // Collapse each (x, y) into the signed perpendicular distance from the tracking center
+    // to the wheel's rolling line: k = ux*y - uy*x, with u = enc1 (1, 1)/sqrt2, enc2 (-1, 1)/sqrt2
+    s_enc1Offset = (enc1Y - enc1X) * INV_SQRT2;
+    s_enc2Offset = -(enc2X + enc2Y) * INV_SQRT2;
     s_enc1Scale = enc1Scale;
     s_enc2Scale = enc2Scale;
 }
@@ -189,5 +191,4 @@ lemlib::Pose getPose() {
     std::lock_guard<pros::Mutex> lock(poseMutex());
     return {s_x, s_y, s_theta * RAD_TO_DEG};
 }
-
 }

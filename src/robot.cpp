@@ -13,7 +13,7 @@ lemlib::Drivetrain drivetrain(&left_mg,
 );
 
 pros::Imu imu(21);
-pros::adi::Encoder back_left_encoder('A', 'B', true);
+pros::adi::Encoder back_left_encoder('A', 'B', false);
 pros::adi::Encoder back_right_encoder('C', 'D', true);
 
 pros::Distance distanceFront(2);
