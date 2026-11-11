@@ -22,6 +22,16 @@ class MCL {
     public:
         static constexpr uint32_t LOOP_MS = 100;
 
+        struct diagnostics {
+            lemlib::Pose estimate;
+            double spread;       // particle spread; inf until first weigh
+            double effectiveN;
+            int particles;
+            int rejectedTicks;
+            fieldRepresentation::distanceSensorDistances sensors;
+        };
+        static diagnostics getDiagnostics();
+
         static void setSensorData(fieldRepresentation::distanceSensorDistances data) { sensorData_ = data; }
 
         static void setTelemetry(telemetry* log);

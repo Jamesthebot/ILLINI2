@@ -16,7 +16,7 @@ void initialize() {
 	angledOdom::start(48, 0, 0);
 	// static telemetry mclLog("/usd/telemetry.csv", 300, 4, MCL::LOOP_MS);
 	//MCL::setTelemetry(&mclLog);
-	//MCL::init(300);
+	MCL::init(300);
 
 	pros::Task screenTask([] {
 		while (true) {
@@ -26,8 +26,9 @@ void initialize() {
 			pros::lcd::print(1, "X: %.2f", pose.x);
 			pros::lcd::print(2, "Y: %.2f", pose.y);
 			pros::lcd::print(3, "Theta: %.2f", pose.theta);
-			pros::lcd::print(5, "Casc deg: %.1f", cascade.getDeg());
-			pros::lcd::print(6, "Casc in: %.2f", cascade.getHeight());
+			MCL::diagnostics d = MCL::getDiagnostics();
+			pros::lcd::print(0, "MCL %.1f %.1f %.1f", d.estimate.x, d.estimate.y, d.estimate.theta);
+			pros::lcd::print(7, "N:%d ESS:%.0f spr:%.1f rej:%d", d.particles, d.effectiveN, d.spread > 999 ? 999.0 : d.spread, d.rejectedTicks);
 			pros::delay(50);
 			
 		}

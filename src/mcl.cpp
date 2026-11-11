@@ -17,8 +17,8 @@ namespace {
 
 constexpr int DEFAULT_PARTICLES = 300;
 
-constexpr double INIT_POS_STD = 1.5;
-constexpr double INIT_HEADING_STD = 2.0;
+constexpr double INIT_POS_STD = 3;
+constexpr double INIT_HEADING_STD = 5.0;
 
 constexpr double MOTION_POS_BASE = 0.02;
 constexpr double MOTION_POS_PER_INCH = 0.05;
@@ -245,6 +245,12 @@ void MCL::init(int numParticles) {
 void MCL::setTelemetry(telemetry* log) {
     std::lock_guard<pros::Mutex> lock(mclMutex());
     telemetryLog = log;
+}
+
+MCL::diagnostics MCL::getDiagnostics() {
+    std::lock_guard<pros::Mutex> lock(mclMutex());
+    return diagnostics{estimatedPose, lastSpread, particles_.empty() ? 0.0 : effectiveParticleCount(),
+                       (int)particles_.size(), rejectedTicks, sensorData_};
 }
 
 void MCL::reset(lemlib::Pose pose) {

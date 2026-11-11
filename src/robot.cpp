@@ -1,8 +1,8 @@
 #include "robot.h"
 
 pros::Controller master(pros::E_CONTROLLER_MASTER);
-pros::MotorGroup left_mg({-4, -7, -9, -10}, pros::MotorGearset::blue);
-pros::MotorGroup right_mg({11, 12, 13, 1}, pros::MotorGearset::blue);
+pros::MotorGroup left_mg({-10, -9, -7, -6}, pros::MotorGearset::blue);
+pros::MotorGroup right_mg({14, 11, 4, 1}, pros::MotorGearset::blue);
 
 lemlib::Drivetrain drivetrain(&left_mg,
                               &right_mg,
@@ -17,12 +17,12 @@ pros::adi::Encoder back_left_encoder('A', 'B', false);
 pros::adi::Encoder back_right_encoder('C', 'D', true);
 
 pros::Distance distanceFront(2);
-pros::Distance distanceLeft(14);
-pros::Distance distanceRight(15);
-pros::Distance distanceBack(18);
+pros::Distance distanceLeft(12);
+pros::Distance distanceRight(16);
+pros::Distance distanceBack(13);
 
 Intake intake(-5);
-Cascade cascade(-3, 6, 17, 0.709, 3);
+Cascade cascade(3, -8, 15, 0.709, 3);//3,8
 Claw claw('H', false, 'G', false, 'F', false); //whole system - actuator, claw clamp, wrist flipper - left to right
 
 lemlib::OdomSensors sensors(nullptr,
